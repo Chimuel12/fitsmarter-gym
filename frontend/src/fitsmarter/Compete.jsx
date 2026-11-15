@@ -28,7 +28,7 @@ function SignIn() {
   return <div className="card fs-signin">
     <h3>{t('Compete with friends')}</h3>
     <p className="fs-muted">{t('Your workouts stay on this device. Sign in only to share workout summaries with your groups and climb the leaderboard.')}</p>
-    <button className="btn fs-full" disabled={busy} onClick={() => signInGoogle().catch(() => toast(t('Google sign-in failed')))}>{t('Continue with Google')}</button>
+    <button className="btn fs-full" disabled={busy} onClick={() => signInGoogle().catch(e => { if (e?.code !== 'cancelled' && e?.code !== 'auth/popup-closed-by-user' && e?.code !== 'auth/cancelled-popup-request') toast(t('Google sign-in failed') + (e?.code ? ` (${e.code})` : '')) })}>{t('Continue with Google')}</button>
     <div className="fs-or">{t('or with email')}</div>
     <label className="fs-field">{t('Email')}<input type="email" autoComplete="email" value={email} onChange={e => setEmail(e.target.value)} /></label>
     <label className="fs-field">{t('Password')}<input type="password" autoComplete="current-password" value={pass} onChange={e => setPass(e.target.value)} /></label>

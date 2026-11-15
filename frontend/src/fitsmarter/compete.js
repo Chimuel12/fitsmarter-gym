@@ -6,6 +6,7 @@
 // Firebase SDK is loaded from Google's CDN on demand, so openGym gains no npm dependency.
 // Security rules: firestore.rules in the FitSmarter repository (deployed to fitsmarter-z2bit).
 import CONFIG from './firebase-config.js'
+import { isAndroid } from '../lib/mobile.js'
 import { workoutVolume, workoutDuration } from '../lib/history.js'
 import { exerciseOf } from '../lib/exercises.js'
 import { exerciseNameFor } from '../lib/i18n-core.js'
@@ -19,7 +20,6 @@ async function sdk() {
     import(/* @vite-ignore */ `${CDN}/firebase-app.js`), import(/* @vite-ignore */ `${CDN}/firebase-auth.js`), import(/* @vite-ignore */ `${CDN}/firebase-firestore.js`)])
   const app = initializeApp(CONFIG)
   fb = { A, F, auth: A.getAuth(app), db: F.getFirestore(app) }
-  try { await A.getRedirectResult(fb.auth) } catch { /* no redirect pending */ }
   return fb
 }
 export const randomCode = () => Array.from(crypto.getRandomValues(new Uint8Array(6)), b => 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[b % 32]).join('')
@@ -29,10 +29,20 @@ export async function watchUser(cb) {
   const { A, auth } = await sdk()
   return A.onAuthStateChanged(auth, cb)
 }
+// The web client of the Google provider (Firebase Auth): Android asks Google for a token for it.
+const GOOGLE_WEB_CLIENT = '935670655430-vs349l9s67139r1h9piutif039oj647j.apps.googleusercontent.com'
 export async function signInGoogle() {
   const { A, auth } = await sdk(), p = new A.GoogleAuthProvider()
-  const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone
-  return standalone ? A.signInWithRedirect(auth, p) : A.signInWithPopup(auth, p)
+  if (await isAndroid()) {
+    // Google blocks its sign-in page inside the app's WebView: the phone's account picker signs in.
+    const { registerPlugin } = await import('@capacitor/core')
+    const { idToken } = await registerPlugin('GoogleSignIn').signIn({ clientId: GOOGLE_WEB_CLIENT })
+    return A.signInWithCredential(auth, A.GoogleAuthProvider.credential(idToken))
+  }
+  // A popup, also when installed: a redirect needs the auth domain's storage, which browsers now
+  // partition away from this site, so it would come back signed out.
+  p.setCustomParameters({ prompt: 'select_account' })
+  return A.signInWithPopup(auth, p)
 }
 export async function signInEmail(email, pass, create) {
   const { A, auth } = await sdk()

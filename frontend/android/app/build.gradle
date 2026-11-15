@@ -114,6 +114,10 @@ dependencies {
     // Writing workouts and weigh-ins to Health Connect (#200, HealthConnectPlugin). Off until the
     // user turns it on.
     implementation "androidx.health.connect:connect-client:$healthConnectVersion"
+    // FitSmarter: native Google sign-in (GoogleSignInPlugin.java)
+    implementation "androidx.credentials:credentials:1.5.0"
+    implementation "androidx.credentials:credentials-play-services-auth:1.5.0"
+    implementation "com.google.android.libraries.identity.googleid:googleid:1.1.1"
     // The sharper animations as Play asset packs (AnimationPacksPlugin in src/play): the Play
     // build only. The sideloaded APK has no Play Store behind it and keeps its built-in ones.
     playImplementation "com.google.android.play:asset-delivery:$assetDeliveryVersion"
