@@ -23,6 +23,7 @@
 //
 // Nothing here bundles a PDF library: the browser's print dialog or the phone's print sheet
 // renders the PDF.
+import { markSvg } from '../fitsmarter/mark.js'
 import { t, getLang, RTL_LANGS, dateLocale } from './i18n-core.js'
 import { MOBILE, printHtml } from './mobile.js'
 
@@ -45,10 +46,7 @@ export function probeMarks(probe) {
 
 // The logo's mark (assets/logo/opengym-mark.svg): five plain rectangles in brand green, beside "open"
 // plus "Gym" in brand green, the light lockup of assets/logo/opengym-logo-light.svg.
-export const LOGO_SVG = '<svg class="logo-mark" viewBox="80 169 352 174" aria-hidden="true">'
-  + '<g fill="#a3e635"><rect x="80" y="242" width="352" height="28"/><rect x="80" y="199" width="36" height="114"/>'
-  + '<rect x="131" y="169" width="47" height="174"/><rect x="334" y="169" width="47" height="174"/>'
-  + '<rect x="396" y="199" width="36" height="114"/></g></svg>'
+export const LOGO_SVG = markSvg('logo-mark')  // FitSmarter runner (fitsmarter/mark.js)
 
 // "Page {0} of {1}" in the reader's language, as the content of an @page margin box: the text
 // around the two numbers comes from the translation, the numbers from CSS counters.
@@ -77,7 +75,7 @@ export const PRINT_CSS = `
   :root {
     --ink: #15171c; --ink-2: #3b404b; --muted: #6b7180; --faint: #9aa0ad;
     --rule: #e3e6ec; --rule-soft: #eff1f5; --tint: #f6f7f9;
-    --lime: #a3e635; --lime-ink: #4d7c0f; --lime-soft: #f1f9e1;
+    --lime: #4C8DFF; --lime-ink: #1F4FBF; --lime-soft: #E6EFFF;
   }
   * { box-sizing: border-box; }
   html { color-scheme: light; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
@@ -98,8 +96,8 @@ export const PRINT_CSS = `
   .mast { display: block; border-bottom: 1.5px solid var(--ink); padding-bottom: 9pt; margin-bottom: 14pt; }
   .mast-top { display: flex; align-items: center; justify-content: space-between; gap: 12pt; margin-bottom: 11pt; }
   .brand { display: flex; align-items: center; gap: .2em; font-weight: 700; font-size: 12pt; letter-spacing: -.036em; color: #12151b; white-space: nowrap; direction: ltr; unicode-bidi: isolate; }
-  .brand .g { color: #a3e635; }
-  .logo-mark { height: 1.07em; width: calc(1.07em * 352 / 174); flex: none; }
+  .brand .g { color: #4C8DFF; }
+  .logo-mark { height: 1.15em; width: calc(1.15em * 330 / 320); flex: none; }
   .mast-meta { font-size: 8pt; color: var(--muted); text-align: end; line-height: 1.35; }
   .mast-meta b { color: var(--ink-2); font-weight: 600; }
   .kicker { font-size: 7.5pt; letter-spacing: .12em; text-transform: uppercase; color: var(--lime-ink); font-weight: 700; margin-bottom: 2pt; }
@@ -153,7 +151,7 @@ export function printShell({ title, kicker = '', facts = [], owner = '', date, b
 ${css}</style></head>
 <body><div class="doc">
   <header class="mast keep">
-    <div class="mast-top"><div class="brand">${LOGO_SVG}<span>open<span class="g">Gym</span></span></div><div class="mast-meta">${meta}</div></div>
+    <div class="mast-top"><div class="brand">${LOGO_SVG}<span>Fit<span class="g">Smarter</span></span></div><div class="mast-meta">${meta}</div></div>
     ${kicker ? `<div class="kicker">${esc(kicker)}</div>` : ''}
     <h1>${esc(title)}</h1>
     ${factLine ? `<div class="facts">${factLine}</div>` : ''}

@@ -201,7 +201,7 @@ export const uid = () => Date.now().toString(36) + Math.random().toString(36).sl
 // NEW_ACCENT); 'lime' is the iOS green every profile wore before 1.4.5, kept as "Classic green"
 // and still what a profile that never picked one draws (DEFAULT_ACCENT).
 export const ACCENT_NAMES = { brand: 'openGym green', lime: 'Classic green', sky: 'Blue', orange: 'Orange', violet: 'Purple', pink: 'Pink', red: 'Red', teal: 'Teal', gold: 'Yellow' }
-export const ACCENTS = { brand: '#a3e635', lime: '#30d158', sky: '#0a84ff', orange: '#ff9f0a', violet: '#bf5af2', pink: '#ff375f', red: '#ff453a', teal: '#40c8e0', gold: '#ffd60a' }
+export const ACCENTS = { brand: '#4C8DFF', lime: '#30d158', sky: '#0a84ff', orange: '#ff9f0a', violet: '#bf5af2', pink: '#ff375f', red: '#ff453a', teal: '#40c8e0', gold: '#ffd60a' }
 // Text drawn on top of that swatch. Matches the --on-acc values in index.css.
 export const ACCENT_INK = { brand: '#0c0e12', lime: '#000000', sky: '#ffffff', orange: '#000000', violet: '#ffffff', pink: '#ffffff', red: '#ffffff', teal: '#000000', gold: '#000000' }
 // Android color int, opaque. JS bitwise ops are signed, so the high bit is cleared back to unsigned.

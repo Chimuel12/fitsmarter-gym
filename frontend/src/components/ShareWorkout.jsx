@@ -74,7 +74,7 @@ function ColorRow({ title, value, presets, labels, named, acc, onPick }) {
       <label className={'sharew-sw' + (custom ? ' on' : '')}>
         <span className="sharew-dot is-custom" style={custom ? { background: value } : undefined} aria-hidden="true" />
         <span>{t('Custom')}</span>
-        <input type="color" className="sharew-cpick" aria-label={t('Custom colour for {0}', title)} value={custom ? value : '#a3e635'} onChange={e => onPick(e.target.value)} />
+        <input type="color" className="sharew-cpick" aria-label={t('Custom colour for {0}', title)} value={custom ? value : '#4C8DFF'} onChange={e => onPick(e.target.value)} />
       </label>
     </div>
   </div>
@@ -378,7 +378,7 @@ export default function ShareWorkout({ w, close }) {
 }
 
 // Kept for a test that wants a picture without the sheet: the card for a template as a PNG blob.
-export async function shareCardPng(model, { template, format, look, show, photo = null, body = null, acc = '#a3e635', bg = 'auto', ink = 'auto', hi = 'auto' }) {
+export async function shareCardPng(model, { template, format, look, show, photo = null, body = null, acc = '#4C8DFF', bg = 'auto', ink = 'auto', hi = 'auto' }) {
   const probe = makeCanvas(1, 1, CARD_FONT)
   if (!probe) return null
   const shape = body && model.levels ? body : null

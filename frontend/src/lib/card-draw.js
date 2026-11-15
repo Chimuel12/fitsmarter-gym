@@ -4,6 +4,7 @@
 // lib/share-image.js gets the picture out of the app. No exercise picture or clip is ever drawn
 // on a card (the licence keeps those inside the app, NOTICE.md).
 
+import { ASPECT, drawMarkOn } from '../fitsmarter/mark.js'
 import { inkIn } from './accent.js'
 
 // 9:16 for Stories and Reels, 1:1 for a feed or a chat.
@@ -65,19 +66,12 @@ export function cardPalette(style, acc = BRAND.green) {
 
 // The brand mark (assets/logo/opengym-mark.svg) on its own 352×174 grid, centred on 0,0. Square
 // corners and these exact proportions: the logo is not ours to restyle per card.
-const MARK = [[-176, -14, 352, 28], [-176, -57, 36, 114], [-125, -87, 47, 174], [78, -87, 47, 174], [140, -57, 36, 114]]
-export const MARK_ASPECT = 352 / 174
-export const BRAND = { green: '#a3e635', ink: '#0c0e12', light: '#eef1f6', dark: '#12151b' }
+export const MARK_ASPECT = ASPECT
+export const BRAND = { green: '#4C8DFF', ink: '#0c0e12', light: '#eef1f6', dark: '#12151b' }
 
 /** The logo mark, `h` high, its left edge at x, centred on y. */
 export function drawMark(ctx, x, y, h, color = BRAND.green) {
-  const s = h / 174
-  ctx.save()
-  ctx.translate(x + 176 * s, y)
-  ctx.scale(s, s)
-  ctx.fillStyle = color
-  for (const [rx, ry, rw, rh] of MARK) ctx.fillRect(rx, ry, rw, rh)
-  ctx.restore()
+  drawMarkOn(ctx, x, y, h, color)  // FitSmarter runner (fitsmarter/mark.js)
 }
 
 // WCAG contrast between two colours, 1 to 21.
