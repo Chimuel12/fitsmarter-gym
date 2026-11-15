@@ -1,13 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Written by scripts/app-icons.mjs: the glyph of resources/icon.svg, for themed icons. -->
+<!-- FitSmarter: the runner (src/fitsmarter/mark.js), for Android 13 themed icons. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="768"
     android:viewportHeight="768">
-    <group android:translateX="128" android:translateY="128">
-        <path
-            android:fillColor="#FFFFFFFF"
-            android:pathData="M80,242h352v28h-352zM80,199h36v114h-36zM131,169h47v174h-47zM334,169h47v174h-47zM396,199h36v114h-36z" />
+    <group android:translateX="157" android:translateY="168" android:scaleX="1.37" android:scaleY="1.37">
+        <group android:translateX="-62" android:translateY="-72">
+            <path android:fillColor="#FFFFFFFF" android:pathData="M280,116a36,36 0 1,0 72,0a36,36 0 1,0 -72,0z" />
+            <path android:strokeColor="#FFFFFFFF" android:strokeWidth="42" android:strokeLineCap="round" android:strokeLineJoin="round" android:pathData="M298,176 L254,268" />
+            <path android:strokeColor="#FFFFFFFF" android:strokeWidth="26" android:strokeLineCap="round" android:strokeLineJoin="round" android:pathData="M290,196 L346,238 L384,206 M284,196 L226,214 L196,262" />
+            <path android:strokeColor="#FFFFFFFF" android:strokeWidth="30" android:strokeLineCap="round" android:strokeLineJoin="round" android:pathData="M254,268 L318,306 L300,384 M254,268 L208,326 L144,328" />
+            <path android:strokeColor="#73FFFFFF" android:strokeWidth="18" android:strokeLineCap="round" android:pathData="M92,212 H156 M70,268 H138 M98,324 H120" />
+        </group>
     </group>
 </vector>

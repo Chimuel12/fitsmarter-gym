@@ -244,7 +244,7 @@ public class OpenGymWidgetProvider extends AppWidgetProvider {
         } catch (Exception e) {
             // the default below
         }
-        return 0xFFA3E635;
+        return 0xFF4C8DFF;
     }
 
     /**
