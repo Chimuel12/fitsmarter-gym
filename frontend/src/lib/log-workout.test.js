@@ -35,7 +35,7 @@ describe('what the user said becomes the workout Finish would have saved', () =>
     expect(w.entries[0].sets).toEqual([{ w: 12, r: 12, done: true }, { w: 12, r: 12, done: true }, { w: 12, r: 10, done: true }])
     expect(w.entries[0].topW).toBe(12)
     expect(w.vol).toBe(workoutVolume(w))
-    expect(w.vol).toBe(12 * 34)
+    expect(w.vol).toBe(2 * 12 * 34) // FitSmarter: 12 kg means one dumbbell, both bells count
     expect(setsDone(w)).toBe(3)
     // the Stats screen's (and estimate_1rm's) estimate finds the session
     expect(best1RM(profile({ workouts: [w] }), '0294')).toMatchObject({ w: 12, r: 12, d: TODAY })
@@ -94,7 +94,7 @@ describe('the numbers', () => {
     const w = build(profile(), { date: TODAY, exercises: [{ exercise: '0025', sets: [{ reps: 5, weight: 120, warmup: true }, { reps: 5, weight: 100 }] }] }).workout
     expect(w.entries[0].sets[0]).toMatchObject({ phase: 'warmup' })
     expect(w.entries[0].topW).toBe(100)
-    expect(w.vol).toBe(500)
+    expect(w.vol).toBe(1000) // FitSmarter: one-dumbbell default, both bells count
   })
 
   it('a timed hold keeps its mode on the entry, so it reads back as 1:00 and not as 0 reps', () => {
@@ -111,7 +111,7 @@ describe('the numbers', () => {
     const w = build(S, { date: TODAY, exercises: [{ exercise: '0289', sets: [{ reps: 10, weight: 20 }] }] }).workout
     expect(w.entries[0].target.dbLoad).toBe('each')
     expect(w.vol).toBe(400)
-    expect(build(profile(), { date: TODAY, exercises: [{ exercise: '0289', sets: [{ reps: 10, weight: 20 }] }] }).workout.vol).toBe(200)
+    expect(build(profile(), { date: TODAY, exercises: [{ exercise: '0289', sets: [{ reps: 10, weight: 20 }] }] }).workout.vol).toBe(400) // FitSmarter: one-dumbbell default
     const total = build(profile({ dbLoad: { '0289': { mode: 'total', _ts: 1 } } }), { date: TODAY, exercises: [{ exercise: '0289', sets: [{ reps: 10, weight: 40 }] }] }).workout
     expect(total.entries[0].target.dbLoad).toBe('total')
     expect(total.vol).toBe(400)

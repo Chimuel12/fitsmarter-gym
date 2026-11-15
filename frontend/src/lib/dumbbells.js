@@ -56,7 +56,8 @@ export function dbLoadOf(value) {
  */
 export function dbLoadFor(S, cfgOrId) {
   const cfg = typeof cfgOrId === 'string' ? { id: cfgOrId } : (cfgOrId || {})
-  return dbLoadOf(cfg.dbLoad) || dbLoadOf(S?.dbLoad?.[cfg.id]) || 'as'
+  // FitSmarter: a dumbbell weight is always ONE bell unless the exercise says otherwise
+  return dbLoadOf(cfg.dbLoad) || dbLoadOf(S?.dbLoad?.[cfg.id]) || 'each'
 }
 
 /**
@@ -64,7 +65,7 @@ export function dbLoadFor(S, cfgOrId) {
  * null rather than a deleted key, so it wins a sync against the other device's older choice.
  */
 export const withDbLoad = (map, exId, mode, now = Date.now()) =>
-  ({ ...(isMap(map) ? map : {}), [exId]: { mode: mode === 'each' || mode === 'total' ? mode : null, _ts: now } })
+  ({ ...(isMap(map) ? map : {}), [exId]: { mode: mode === 'each' || mode === 'total' || mode === 'as' ? mode : null, _ts: now } })
 
 // One arm at a time means one bell, whatever the setting says. "Alternating" curls still hold
 // two, so only the words that say a single arm or hand count.

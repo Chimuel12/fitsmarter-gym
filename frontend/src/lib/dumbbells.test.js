@@ -44,7 +44,7 @@ describe('the setting', () => {
   })
 
   it('reads as entered unless a routine slot or the exercise says otherwise', () => {
-    expect(dbLoadFor(state(), BENCH)).toBe('as')
+    expect(dbLoadFor(state(), BENCH)).toBe('each') // FitSmarter: one dumbbell by default
     const S = state([], { dbLoad: withDbLoad({}, BENCH, 'each', 5) })
     expect(S.dbLoad[BENCH]).toEqual({ mode: 'each', _ts: 5 })
     expect(dbLoadFor(S, BENCH)).toBe('each')
@@ -53,12 +53,12 @@ describe('the setting', () => {
     expect(dbLoadFor(S, { id: BENCH, dbLoad: 'as' })).toBe('as')
     // Junk reads as nothing.
     expect(dbLoadOf('both')).toBe(null)
-    expect(dbLoadFor({ dbLoad: { [BENCH]: { mode: 'x' } } }, BENCH)).toBe('as')
+    expect(dbLoadFor({ dbLoad: { [BENCH]: { mode: 'x' } } }, BENCH)).toBe('each') // FitSmarter: one dumbbell by default
   })
 
   it('goes back to as entered as a stamped null, so it wins a sync', () => {
     const map = withDbLoad(withDbLoad({}, BENCH, 'each', 1), BENCH, 'as', 2)
-    expect(map[BENCH]).toEqual({ mode: null, _ts: 2 })
+    expect(map[BENCH]).toEqual({ mode: 'as', _ts: 2 })
     expect(dbLoadFor({ dbLoad: map }, BENCH)).toBe('as')
   })
 
@@ -179,11 +179,11 @@ describe('like with like', () => {
 describe('a session', () => {
   it('stamps the meaning it is logged in, and only when there is one', () => {
     const plain = buildPlannedEntry(state(), { id: BENCH, sets: 2, reps: 8, weight: 20, mode: 'reps' }, null)
-    expect(plain.target.dbLoad).toBeUndefined()
+    expect(plain.target.dbLoad).toBe('each') // FitSmarter stamps one-bell meaning
     const S = state([], { dbLoad: withDbLoad({}, BENCH, 'each', 1) })
     expect(buildPlannedEntry(S, { id: BENCH, sets: 2, reps: 8, weight: 20, mode: 'reps' }, null).target.dbLoad).toBe('each')
     expect(withMeaning(S, { sets: 2 }, BENCH)).toEqual({ sets: 2, dbLoad: 'each' })
-    expect(withMeaning(state(), { sets: 2 }, BENCH)).toEqual({ sets: 2 })
+    expect(withMeaning(state(), { sets: 2, dbLoad: 'each' }, BENCH)).toEqual({ sets: 2, dbLoad: 'each' })
   })
 
   it('starts from last time read in today\'s meaning after a switch', () => {

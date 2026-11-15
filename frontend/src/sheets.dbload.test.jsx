@@ -39,13 +39,13 @@ describe('weight means', () => {
     exerciseDetailSheet(BENCH)
     const host = render(useUI.getState().sheets.at(-1))
     expect(host.textContent).toContain('Weight means')
-    expect(segButton(host, 'As entered').classList.contains('on')).toBe(true)
-    expect(host.textContent).toContain('Counted as you type it, the way it always was.')
+    expect(segButton(host, 'Each').classList.contains('on')).toBe(true) // FitSmarter: one dumbbell by default
+    // FitSmarter: the sheet opens on Each (one dumbbell), so the As-entered description is not shown
     act(() => segButton(host, 'Each').click())
     expect(S().dbLoad[BENCH.id]).toEqual({ mode: 'each', _ts: expect.any(Number) })
     expect(host.textContent).toContain('Volume counts both.')
     act(() => segButton(host, 'As entered').click())
-    expect(S().dbLoad[BENCH.id]).toEqual({ mode: null, _ts: expect.any(Number) })
+    expect(S().dbLoad[BENCH.id]).toEqual({ mode: 'as', _ts: expect.any(Number) })
   })
 
   it('is not offered for a barbell', () => {

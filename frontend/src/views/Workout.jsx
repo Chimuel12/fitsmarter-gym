@@ -49,6 +49,7 @@ import LiveHeartRate from '../components/LiveHeartRate.jsx'
 import LiveCard from '../components/LiveCard.jsx'
 import Icon from '../components/Icon.jsx'
 import { Button, Check, NumberField } from '../components/ui.jsx'
+import { weightRule, perSideColumn, ruleText } from '../fitsmarter/weight-rule.js'
 import { defaultIncrement, weightIncrement, stepWeight } from '../lib/progression.js'
 import { progressionGuidance } from '../lib/progression-copy.js'
 import { rpeAs } from '../lib/programmes.js'
@@ -448,8 +449,11 @@ function ExerciseBlock({ entryIdx, compact, listed, dense, editing, onToggle, on
   // The weight column says what a dumbbell weight means when the exercise has said (#474): one
   // bell or both together. A one-arm exercise holds one bell, so its plain heading is already true.
   const bells = !bw && bellsIn(cfg) === 2 ? meaning : 'as'
-  const loadCol = { f: 'w', step: loadStep, dec: true, hd: bw ? t('Added ({0})', S.unit)
+  const loadCol0 = { f: 'w', step: loadStep, dec: true, hd: bw ? t('Added ({0})', S.unit)
     : bells === 'each' ? t('Each ({0})', S.unit) : bells === 'total' ? t('Both ({0})', S.unit) : t('Weight ({0})', S.unit) }
+  // FitSmarter: one weight rule per exercise type (fitsmarter/weight-rule.js)
+  const rule = mode === 'reps' ? weightRule(S, cfg, { bw, bells }) : null
+  const loadCol = rule?.kind === 'side' ? perSideColumn(loadCol0, rule.base, S.unit, t) : loadCol0
   // The reps column is the total in every mode, unilateral included — the stepper walks in
   // twos there so the number you land on is one you can actually split evenly.
   const repCol = { f: 'r', step: repStep(cfg), dec: false, hd: t('Reps') }
@@ -1012,6 +1016,7 @@ function ExerciseBlock({ entryIdx, compact, listed, dense, editing, onToggle, on
         ? <button type="button" className="hd-swap" onClick={switchCardioBy} aria-label={byDist ? t('Log speed instead') : t('Log distance instead')}
           title={byDist ? t('Log speed instead') : t('Log distance instead')}>{col2.hd}<Icon name="swap" /></button>
         : col2.hd}</span>}{col3 && <span className={col3.eff ? 'eff-sp' : 'r-sp inc-sp'}>{col3.hd}</span>}{timed && <span className="ck-sp" />}<span className="ck-sp" /></div>
+      {rule && <p className="fs-rule">{ruleText(rule, S.unit, t)}</p>}
       <span id={optsId} className="vh">{t('Options: copy, remove')}</span>
       {entry.sets.map((s, i) => {
         const warm = isWarmupRow(s)

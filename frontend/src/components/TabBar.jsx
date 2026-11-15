@@ -99,7 +99,9 @@ export default function TabBar({ onStart, onPick }) {
           : <span>{S.active ? (cur === 'workout' ? t('Workout') : S.active.editingWorkoutId ? t('Edit workout') : t('Resume')) : t('Start')}</span>}
       </button>
       <Tab active={on('stats')} icon="chart" label={t('Stats')} onClick={() => switchTab('/stats')} tour="tab-stats" />
-      <Tab active={on('library')} icon="dumbbell" label={t('Exercises')} onClick={() => switchTab('/library')} tour="tab-library" />
+      {/* FitSmarter: the body hub takes the Exercises tab; the library is one tap away from it */}
+      <Tab active={on('body') || on('library')} icon="dumbbell" label={t('Body')} onClick={() => switchTab('/body')} tour="tab-library" />
+      <Tab active={on('compete')} icon="trophy" label={t('Compete')} onClick={() => switchTab('/compete')} />
     </nav>
   )
 }

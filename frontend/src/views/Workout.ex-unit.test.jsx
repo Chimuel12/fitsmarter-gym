@@ -52,18 +52,18 @@ const LB = { exUnit: withExUnit({}, BENCH, 'lb', 1) }
 describe('a pinned exercise in a running session', () => {
   it('labels and shows its own unit, next to an exercise in the profile’s', () => {
     mount([entry(BENCH, [work(61.235)]), entry(SQUAT, [work(100)])], LB)
-    expect(heads()).toEqual(['Weight (lb)', 'Weight (kg)'])
-    expect(weights()).toEqual([['135'], ['100']])
+    expect(heads()).toEqual(['Per side (lb)', 'Per side (kg)'] /* FitSmarter: plates on one side */)
+    expect(weights()).toEqual([['45'], ['40']] /* 135 lb = 45 bar + 2 × 45; 100 kg = 20 bar + 2 × 40 */)
   })
 
   it('steps by 5 lb and stores the exact kg', () => {
     mount([entry(BENCH, [work(61.235)])], LB)
     tapIn(0, 'Increase')
     expect(stored()).toBe(63.5029)
-    expect(weights()).toEqual([['140']])
+    expect(weights()).toEqual([['47.5']] /* 140 lb total */)
     for (let i = 0; i < 20; i++) tapIn(0, 'Increase')
     for (let i = 0; i < 20; i++) tapIn(0, 'Decrease')
-    expect(weights()).toEqual([['140']])
+    expect(weights()).toEqual([['47.5']] /* 140 lb total */)
     expect(stored()).toBe(63.5029)
   })
 
@@ -72,7 +72,7 @@ describe('a pinned exercise in a running session', () => {
     const input = container.querySelector('.stp input')
     act(() => {
       const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set
-      set.call(input, '225')
+      set.call(input, '90') // FitSmarter: 90 lb per side → 225 lb on the bar
       input.dispatchEvent(new Event('input', { bubbles: true }))
     })
     const S = useStore.getState().S
@@ -112,19 +112,19 @@ describe('a pinned exercise in a running session', () => {
 
   it('a CSV round trip (20.41 kg) shows 45 lb, keeps 20.41 untouched, and + goes to 50', () => {
     mount([entry(BENCH, [work(20.41)])], LB)
-    expect(weights()).toEqual([['45']])
+    expect(weights()).toEqual([['0']] /* the 45 lb bar alone */)
     expect(stored()).toBe(20.41)
     tapIn(0, 'Increase')
-    expect(weights()).toEqual([['50']])
+    expect(weights()).toEqual([['2.5']] /* 50 lb total */)
   })
 
   it('after unpinning, a lb-typed weight shows 20.41 kg and stays exact', () => {
     mount([entry(BENCH, [work(20.4117)])], { exUnit: withExUnit({}, BENCH, null, 2) })
-    expect(weights()).toEqual([['20.41']])
+    expect(weights()).toEqual([['0.21']] /* 20.41 kg on a 20 kg bar */)
     expect(stored()).toBe(20.4117)
     // Off the 2.5 grid, a tap adds the step as it always did (#175): 20.41 + 2.5.
     tapIn(0, 'Increase')
-    expect(weights()).toEqual([['22.9']])
+    expect(weights()).toEqual([['1.45']] /* 22.9 kg on a 20 kg bar */)
   })
 })
 
