@@ -147,8 +147,9 @@
    glyph on a green tile turns dark with it (--on-green, below). In the light theme the fill steps to
    #84cc16, the next shade of the same lime, which still reads on white, and text takes #4a7a0e
    (4.6:1 on the page, 5.2:1 on a card). */
-:root[data-accent="brand"] { --acc:#a3e635; --acc-2:#84cc16; --on-acc:#0c0e12; --knob-ring:rgba(0,0,0,.28); --green:#a3e635; --on-green:#0c0e12 }
-:root[data-theme="light"][data-accent="brand"] { --acc:#84cc16; --acc-2:#65a30d; --green:#84cc16; --green-ink:#4a7a0e; --win-ink:#4a7a0e }
+/* FitSmarter: the brand accent is blue (#4C8DFF); the status green stays a real green */
+:root[data-accent="brand"] { --acc:#4C8DFF; --acc-2:#2F6FEB; --on-acc:#ffffff; --knob-ring:rgba(0,0,0,.28) }
+:root[data-theme="light"][data-accent="brand"] { --acc:#2F6FEB; --acc-2:#1F5BD8; --win-ink:#1F4FBF }
 /* the other accents: Apple's system colours, so a recolour never looks off-system */
 :root[data-accent="lime"]  { --acc:var(--green);  --acc-2:#248a3d; --on-acc:#000 }
 :root[data-accent="sky"]   { --acc:var(--blue);   --acc-2:#0060df; --on-acc:#fff }
@@ -161,7 +162,7 @@
 /* --acc-ink in the light theme, per preset: 4.5:1 or better on both --bg (#f2f2f7) and white. A
    colour of the user's own gets its --acc-ink inline from lib/accent.js (inkIn), to the same 4.5:1
    in both themes (redesign 1.4.5, P12). */
-:root[data-theme="light"][data-accent="brand"] { --acc-ink:#4a7a0e }
+:root[data-theme="light"][data-accent="brand"] { --acc-ink:#1F4FBF }
 :root[data-theme="light"][data-accent="lime"]  { --acc-ink:#1a7f37 }
 :root[data-theme="light"][data-accent="sky"]   { --acc-ink:#0062cc }
 :root[data-theme="light"][data-accent="orange"]{ --acc-ink:#a85200 }
@@ -178,7 +179,7 @@
    passes and matches the platform convention. */
 :root[data-theme="light"][data-accent="lime"],
 :root[data-theme="light"][data-accent="teal"]  { --on-acc:#000 }
-:root[data-theme="light"][data-accent="brand"] { --on-acc:#0c0e12 }
+:root[data-theme="light"][data-accent="brand"] { --on-acc:#ffffff }
 :root[data-theme="light"][data-accent="sky"],
 :root[data-theme="light"][data-accent="violet"],
 :root[data-theme="light"][data-accent="pink"],
@@ -216,7 +217,7 @@ input,textarea,[contenteditable]{caret-color:var(--acc-ink)}
     --sep:rgba(60,60,67,.6); --sep-op:rgba(60,60,67,.5);
   }
   /* The brand's green keeps its own shades; its words go one step deeper (7:1 on white). */
-  :root[data-theme="light"][data-accent="brand"]{ --green-ink:#3f6212; --acc-ink:#3f6212; --win-ink:#3f6212 }
+  :root[data-theme="light"][data-accent="brand"]{ --acc-ink:#1A44A8; --win-ink:#1A44A8 }
 }
 
 /* ---------------------------------------------------------------- reset -- */
@@ -4654,9 +4655,9 @@ button.wl-summary{width:100%;padding:0 0 10px;text-align:start;border-radius:var
 /* The openGym logo (components/BrandLogo.jsx, assets/logo): brand colours whatever the accent, the
    type 700 with tight tracking, the mark 1.07em high with its middle 0.36em over the baseline. */
 .brand-lockup{display:inline-block;font-weight:700;letter-spacing:-.036em;line-height:1.1;white-space:nowrap;unicode-bidi:isolate;direction:ltr}
-.brand-lockup-mark{display:inline-block;height:1.07em;width:calc(1.07em * 352 / 174);vertical-align:-.175em;margin-inline-end:.2em;fill:#a3e635}
+.brand-lockup-mark{display:inline-block;height:1.07em;width:calc(1.07em * 352 / 174);vertical-align:-.175em;margin-inline-end:.2em;fill:#4C8DFF}
 .brand-lockup-open{color:#eef1f6}
-.brand-lockup-gym{color:#a3e635}
+.brand-lockup-gym{color:#4C8DFF}
 :root[data-theme="light"] .brand-lockup-open{color:#12151b}
 
 /* Add set / Warm-up / Remove: 44px tall, the leading glyph on the card's content edge; wrapped siblings share the same edge */

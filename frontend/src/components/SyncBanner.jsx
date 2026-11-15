@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore.js'
-import { DEMO } from '../lib/demo.js'
+import { DEMO, STANDALONE } from '../lib/demo.js'
 import { t } from '../lib/i18n.js'
 import { connectionView, actionLabel, syncNowWithToast, pairAgain, connectServer, signInAgain, useOnline } from './ServerSync.jsx'
 import Icon from './Icon.jsx'
@@ -98,7 +98,8 @@ export default function SyncBanner() {
     connect: connectServer,
     // Signed in, or with a session the server ended: the passkey right here. A guest goes to
     // Settings, where signing in sits next to creating a profile.
-    signin: () => (user || status === 'auth' ? signInAgain() : nav('/settings/account')),
+    // FitSmarter has no server: signing in is the Google / email account of Compete
+    signin: () => (STANDALONE ? nav('/compete') : user || status === 'auth' ? signInAgain() : nav('/settings/account')),
   }[view.action]
   const label = actionLabel(view)
   const inner = <>
