@@ -150,6 +150,5 @@ export default function Hub() {
         {!S?.birthYear && <button className="btn" onClick={() => aboutYouSheet()}>{t('Sex and birth year')}</button>}
       </div>
     </div>}
-    <p className="fs-credit">{t('FitSmarter is based on openGym (AGPL-3.0).')} <a href="https://github.com/Chimuel12/fitsmarter-gym" target="_blank" rel="noopener noreferrer">{t('Source code')}</a> · <a href="https://github.com/DuarteSantos8/openGym" target="_blank" rel="noopener noreferrer">openGym</a></p>
   </>
 }

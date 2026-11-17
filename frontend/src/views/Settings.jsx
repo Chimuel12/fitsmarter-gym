@@ -1280,7 +1280,7 @@ export default function Settings({ page = null, find = null, via = null, entryKe
           release is newer (checksum verified, see onUpdateRowClick). On the web the app updates
           with its server, so the row points at the APK for the phone instead. iOS and the Google
           Play build are updated by their store. */}
-      <Section footer={MOBILE ? (selfUpdate ? t('Releases are checked on GitHub. The download is verified against its checksum before the installer opens.') : offline ? t('openGym Offline never checks for updates, it can’t. New versions come from wherever you got this one.') : fdroid ? t('F-Droid installs the updates for this build.') : null) : t('The web app updates together with your server. The Android app installs its own updates from here.')}>
+      <Section footer={MOBILE ? (selfUpdate ? (STANDALONE ? t('New versions are checked automatically and verified before the installer opens.') : t('Releases are checked on GitHub. The download is verified against its checksum before the installer opens.')) : offline ? t('openGym Offline never checks for updates, it can’t. New versions come from wherever you got this one.') : fdroid ? t('F-Droid installs the updates for this build.') : null) : STANDALONE ? t('The web app is always up to date. The Android app installs its own updates.') : t('The web app updates together with your server. The Android app installs its own updates from here.')}>
         {/* The sideloaded APK comes in three kinds that differ only in the animations built in
             (lib/apk-variant.js): which one this is, so nobody has to guess from the file size. */}
         <Row icon="info" iconTint="var(--grey)" title={t('Version')} value={'v' + __APP_VERSION__}
@@ -1292,8 +1292,8 @@ export default function Settings({ page = null, find = null, via = null, entryKe
               accessory="chevron"
               onClick={() => (updateInfo?.hasUpdate ? onUpdateRowClick() : checkNow())} />
           : <Row icon="download" iconTint="var(--green)" title={t('Get the Android app')}
-              subtitle={t('Download the APK from opengym.ch')} accessory="chevron"
-              onClick={() => window.open('https://opengym.ch/#download', '_blank', 'noopener')} />}
+              subtitle={STANDALONE ? t('Download FitSmarter for Android') : t('Download the APK from opengym.ch')} accessory="chevron"
+              onClick={() => window.open(STANDALONE ? 'https://github.com/Chimuel12/fitsmarter-gym/releases/latest/download/FitSmarter.apk' : 'https://opengym.ch/#download', '_blank', 'noopener')} />}
       </Section>
       {/* The F-Droid build has no Wear OS link (it would need Google Play services, which F-Droid
           leaves out): said here rather than having a watch that silently never connects. */}
@@ -1322,7 +1322,7 @@ export default function Settings({ page = null, find = null, via = null, entryKe
           shows only its rating link: Play's payments policy wants Play billing for anything paid
           inside an app, donations to a project that isn't a registered charity included, so the
           coffee links stay on the APK, the iPhone and the web (docs/APP_STORES.md). */}
-      <Section title={t('Support openGym')} footer={play ? undefined : t('openGym is free: no ads, no subscriptions, no tracking. A coffee keeps it that way.')}>
+      {!STANDALONE && <Section title={t('Support openGym')} footer={play ? undefined : t('openGym is free: no ads, no subscriptions, no tracking. A coffee keeps it that way.')}>
         {MOBILE && ios && <Row icon="star" iconTint="var(--orange)" title={t('Rate openGym on the App Store')} accessory="chevron"
           onClick={() => window.open('https://apps.apple.com/app/id6822275400?action=write-review', '_blank', 'noopener')} />}
         {play && <Row icon="star" iconTint="var(--orange)" title={t('Rate openGym on Google Play')} accessory="chevron"
@@ -1335,7 +1335,7 @@ export default function Settings({ page = null, find = null, via = null, entryKe
           <Row icon="heart" iconTint="var(--purple)" title="GitHub Sponsors" accessory="chevron"
             onClick={() => window.open('https://github.com/sponsors/DuarteSantos8', '_blank', 'noopener')} />
         </>}
-      </Section>
+      </Section>}
       {/* "Add to Home screen": not inside the phone app, and not once it is installed. Safari's
           Share menu only on Apple (an iPad says Macintosh too); Windows and Linux get Chrome's
           install icon instead of an iPhone tip. */}
@@ -1347,14 +1347,17 @@ export default function Settings({ page = null, find = null, via = null, entryKe
       {/* The version, where the support template tells people to look for it. On the phone
           build there is no address bar and no about box, so without this there is no way to tell
           which build you are running, or whether an update actually installed. */}
-      <div className="dim small sp-version">
+      {STANDALONE ? <div className="dim small sp-version">
+        FitSmarter v{__APP_VERSION__}<br />
+        <a href="#" onClick={e => { e.preventDefault(); legalSheet() }}><span>{t('Legal notices')}</span></a>
+      </div> : <div className="dim small sp-version">
         openGym v{__APP_VERSION__} · {t('free & open source (AGPL v3)')}<br />
         <a href="https://github.com/DuarteSantos8/openGym" target="_blank" rel="noopener"><span>{t('Source code')}</span></a><br />
         {/* Attribution the media licence asks for word for word (agreement §8c), so it is not translated.
             The spans keep each link's words above its neighbours' 44 px tap targets (index.css). */}
         Exercise media © Aliaksandr Makatserchyk, <a href="https://gymvisual.com/" target="_blank" rel="noopener"><span>Gym visual</span></a>, gymvisual.com.
         Media licensed for use in openGym only; see <a href="https://github.com/DuarteSantos8/openGym/blob/main/NOTICE.md" target="_blank" rel="noopener"><span>NOTICE.md</span></a>
-      </div>
+      </div>}
     </>,
 
     account: () => <>
@@ -1526,6 +1529,17 @@ function SettingsRoot({ ctx, preview, open, user, sync, home, go, entryKey }) {
       <div className="dim small sp-version">{STANDALONE ? 'FitSmarter' : 'openGym'} v{__APP_VERSION__}</div>
     </>}
   </div>
+}
+
+// FitSmarter: the notices the licences require (AGPL-3.0 §5(d) and §13, the Gym visual media
+// agreement §8c, word for word), behind one quiet link in About instead of on the screens.
+function legalSheet() {
+  useUI.getState().openSheet(() => <div className="fs-sheet" style={{ fontSize: 14, lineHeight: 1.5 }}>
+    <h2>{t('Legal notices')}</h2>
+    <p>FitSmarter is free software under the GNU AGPL v3, based on openGym. <a href="https://github.com/Chimuel12/fitsmarter-gym" target="_blank" rel="noopener">Source code</a></p>
+    <p>Exercise media © Aliaksandr Makatserchyk, <a href="https://gymvisual.com/" target="_blank" rel="noopener">Gym visual</a>, gymvisual.com.
+      Media licensed for use in openGym only; see <a href="https://github.com/Chimuel12/fitsmarter-gym/blob/main/NOTICE.md" target="_blank" rel="noopener">NOTICE.md</a></p>
+  </div>)
 }
 
 // FitSmarter: what the Google Drive row says on the Settings root.
