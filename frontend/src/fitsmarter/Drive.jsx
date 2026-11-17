@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { useUI } from '../store/useUI.js'
 import { t } from '../lib/i18n.js'
 import { MOBILE } from '../lib/mobile.js'
+import { IOS_APP } from './Compete.jsx'
 import { driveState, onDrive, connectDrive, disconnectDrive, chooseFolder, syncNow } from './drive.js'
 import './fitsmarter.css'
 
@@ -28,7 +29,7 @@ export default function Drive() {
   return <div className="narrow">
     <div className="sp-nav"><button className="sp-back" onClick={() => nav('/settings')}><span>‹ {t('Settings')}</span></button></div>
     <div className="hdr"><div style={{ flex: 1 }}><h1>Google Drive</h1><div className="sub">{t('Your data, in your own Drive, on every device')}</div></div></div>
-    {!s.on ? <div className="card fs-drive">
+    {IOS_APP ? <div className="card fs-drive"><p className="fs-muted">{t('On iPhone, open FitSmarter in Safari to use Google Drive sync: chimuel12.github.io/fitsmarter-gym')}</p></div> : !s.on ? <div className="card fs-drive">
       <p className="fs-muted">{t('Sign in with Google and FitSmarter keeps a copy of all your data in a folder of your Drive, and keeps every phone and browser with your account in sync. It sees only its own file, never the rest of your Drive.')}</p>
       <button className="btn fs-full fs-primary" disabled={s.busy} onClick={() => connectDrive().catch(fail)}>{s.busy ? t('Connecting…') : t('Continue with Google')}</button>
     </div> : <div className="card fs-drive">

@@ -8,6 +8,8 @@ import { Gem, GemDefs } from './Hub.jsx'
 import { watchUser, signInGoogle, signInEmail, signOutFs, saveProfile, profilesOf, watchGroups, createGroup, joinGroup, leaveGroup, watchFeed, kudos, syncWorkouts, METRICS, board } from './compete.js'
 import './fitsmarter.css'
 
+// The iPhone app: Google refuses its sign-in inside an app's web view and there is no native one here.
+export const IOS_APP = typeof window !== 'undefined' && window.Capacitor?.getPlatform?.() === 'ios'
 const GID_KEY = 'fs_gid'
 const tierById = id => TIERS.find(x => x.id === id) || TIERS[0]
 const toast = msg => { try { useUI.getState().toast?.(msg) } catch { /* no toast in this build */ } }
@@ -27,8 +29,8 @@ function SignIn() {
   }
   return <div className="card fs-signin">
     <h3>{t('Compete with friends')}</h3>
-    <button className="btn fs-full" disabled={busy} onClick={() => signInGoogle().catch(e => { if (e?.code !== 'cancelled' && e?.code !== 'auth/popup-closed-by-user' && e?.code !== 'auth/cancelled-popup-request') toast(t('Google sign-in failed') + (e?.code ? ` (${e.code})` : '')) })}>{t('Continue with Google')}</button>
-    <div className="fs-or">{t('or with email')}</div>
+    {!IOS_APP && <button className="btn fs-full" disabled={busy} onClick={() => signInGoogle().catch(e => { if (e?.code !== 'cancelled' && e?.code !== 'auth/popup-closed-by-user' && e?.code !== 'auth/cancelled-popup-request') toast(t('Google sign-in failed') + (e?.code ? ` (${e.code})` : '')) })}>{t('Continue with Google')}</button>}
+    {!IOS_APP && <div className="fs-or">{t('or with email')}</div>}
     <label className="fs-field">{t('Email')}<input type="email" autoComplete="email" value={email} onChange={e => setEmail(e.target.value)} /></label>
     <label className="fs-field">{t('Password')}<input type="password" autoComplete="current-password" value={pass} onChange={e => setPass(e.target.value)} /></label>
     <div className="fs-two"><button className="btn" disabled={busy || !email || pass.length < 6} onClick={() => go(false)}>{t('Sign in')}</button>
