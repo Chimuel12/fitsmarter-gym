@@ -16,6 +16,15 @@ import { guardFocusZoom } from './lib/viewport-zoom.js'
 import { initBuildCaps } from './lib/channel.js'
 import { startNetLog } from './lib/net-log.js'
 import { applyDisplay } from './lib/display-prefs.js'
+import { STANDALONE } from './lib/demo.js'
+import { setLeanDefaults, setUnavailableModules } from './lib/modules.js'
+
+// FitSmarter: the essentials only. No server, so no Coach, webhooks or community library; the
+// rest starts off and can be switched on in Settings → Modules.
+if (STANDALONE) {
+  setUnavailableModules(['coach', 'integrations', 'community'])
+  setLeanDefaults(['effort', 'strength', 'videos', 'watch', 'checkin', 'motivation', 'seasonal'])
+}
 
 // App.jsx restores per-route scroll itself; the browser's own attempt races it.
 // A script that dies before the app draws would otherwise leave the boot logo lifting forever.

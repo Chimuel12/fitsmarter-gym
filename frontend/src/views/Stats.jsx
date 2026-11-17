@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { STANDALONE } from '../lib/demo.js'
 import { scrollToTop } from '../lib/scroll-top.js'
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore.js'
@@ -903,7 +904,7 @@ export default function Stats() {
       className="stats-link month-story" onClick={() => openMonthStory(storyMonth)} />,
     ...wrapped.map(y => <Row key={y} title={t('Your year')} value={y === thisYear ? t('So far') : String(y)} accessory="chevron"
       className="stats-link" onClick={() => openWrapped(y)} />),
-  ].filter(Boolean)
+  ].filter(Boolean).filter(r => !(STANDALONE && ['p', 'b', 'j', 't'].includes(r.key)))   // FitSmarter: the essentials
   const statsLinks = linkRows.length > 0 && <>
     <h4 className="sec">{t('More')}</h4>
     <div className="sect-b stats-links" data-stats-links>{linkRows}</div>

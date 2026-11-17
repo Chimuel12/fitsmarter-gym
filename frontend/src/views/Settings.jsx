@@ -51,7 +51,7 @@ import { wakeLockSupported } from '../lib/wakelock.js'
 import { t, tn, LANGS, INSTR_LANGS, EXERCISE_NAME_LANGS, baseLang, dateLocale } from '../lib/i18n.js'
 import { nameIn, said } from '../lib/a11y-name.js'
 import { effectiveLang } from '../lib/default-lang.js'
-import { DEMO, REPO } from '../lib/demo.js'
+import { DEMO, REPO, STANDALONE } from '../lib/demo.js'
 import { MOBILE, isAndroid, shareExport, shareExportBlob, syncReminder } from '../lib/mobile.js'
 import { NUDGE_COPY, NUDGE_TONES, toneOf } from '../lib/nudge.js'
 import { referencedFiles } from '../lib/media-refs.js'
@@ -1494,7 +1494,7 @@ function SettingsRoot({ ctx, preview, open, user, sync, home, go, entryKey }) {
         <Row key={h.page + ':' + h.title} icon={h.icon} iconTint={h.tint} title={h.label} subtitle={h.trail} accessory="chevron" onClick={() => go(h)} />
       ))}
     </Section> : <div className="sp-empty">{t('No setting matches “{0}”.', q.trim())}</div>) : <>
-      <Section>
+      {!STANDALONE && <Section>
         <button className="lrow tap sp-acct" data-tour="settings-account" onClick={() => open('account')}>
           <AvatarFace name={faceName} />
           <span className="lrow-m"><span className="lrow-t">{acct.title}</span><span className="lrow-s">{acct.sub}</span></span>
@@ -1502,8 +1502,8 @@ function SettingsRoot({ ctx, preview, open, user, sync, home, go, entryKey }) {
           {ctx.mod('motivation') && <PinnedBadges />}
           <Icon name="chevronRight" className="lrow-c" />
         </button>
-      </Section>
-      {ROOT_GROUPS.map(g => ({ ...g, ids: g.ids.filter(id => onRoot(id, ctx)) })).filter(g => g.ids.length).map(g => (
+      </Section>}
+      {ROOT_GROUPS.map(g => ({ ...g, ids: g.ids.filter(id => onRoot(id, ctx) && !(STANDALONE && id === 'integrations' && !MOBILE)) })).filter(g => g.ids.length).map(g => (
         <Section key={g.ids[0]} title={g.title && t(g.title)}>
           {g.ids.map(id => <Row key={id} icon={PAGES[id].icon} iconTint={PAGES[id].tint} title={t(PAGES[id].title)}
             value={preview[id]?.() || null} accessory="chevron" onClick={() => open(id)} className="sp-root-row" tour={'settings-' + id} />)}
@@ -1514,11 +1514,11 @@ function SettingsRoot({ ctx, preview, open, user, sync, home, go, entryKey }) {
             value={t('Admin')} accessory="chevron" onClick={() => nav('/admin', { state: { section: 'coach' } })} className="sp-root-row" />}
           {/* Claude, ChatGPT or Gemini on the plan people already pay for, with openGym as their
               connector (views/Assistants.jsx). Everywhere but the offline build and the demo. */}
-          {g.title === 'Connections' && !DEMO && !ctx.offline && <Row icon="chat" iconTint="var(--acc)" title={t('Use your subscription')}
+          {g.title === 'Connections' && !DEMO && !STANDALONE && !ctx.offline && <Row icon="chat" iconTint="var(--acc)" title={t('Use your subscription')}
             accessory="chevron" onClick={() => nav('/assistants')} className="sp-root-row" />}
         </Section>
       ))}
-      <div className="dim small sp-version">openGym v{__APP_VERSION__}</div>
+      <div className="dim small sp-version">{STANDALONE ? 'FitSmarter' : 'openGym'} v{__APP_VERSION__}</div>
     </>}
   </div>
 }

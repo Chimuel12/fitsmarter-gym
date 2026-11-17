@@ -20,7 +20,7 @@ import { workoutControls } from '../lib/workout-controls.js'
 import { tappable } from '../lib/use-sheet-keyboard.js'
 import { useListReorder, moved } from '../lib/use-list-reorder.js'
 import { glyphOf, DEFAULT_GLYPH } from '../lib/glyphs.js'
-import { DEMO } from '../lib/demo.js'
+import { DEMO, STANDALONE } from '../lib/demo.js'
 import { MOBILE } from '../lib/mobile.js'
 import { coachAvailable } from '../lib/coach.js'
 import { queueOf, queueView } from '../lib/queue.js'
@@ -319,7 +319,8 @@ function Schedule({ S, update, nav, mode }) {
   const editing = editLoop && !external
 
   return <>
-    <Section className="plan-mode" tour="plan-mode" footer={mode === 'rotation'
+    {/* FitSmarter: the fixed week is the default and says nothing; the switch lives in Settings → Plan. */}
+    {!(STANDALONE && mode === 'week' && !external) && <Section className="plan-mode" tour="plan-mode" footer={mode === 'rotation'
       ? t('Routines in a loop. Whatever is next stays next until you train it, whatever the day.')
       : t('The same routines on the same weekdays, every week.')}>
       <Row icon="repeat" iconTint="var(--orange)" title={t('How you train')}>
@@ -331,7 +332,7 @@ function Schedule({ S, update, nav, mode }) {
       </Row>
       {/* a cobweb in the card's empty top corner, in season (components/Seasonal.jsx) */}
       <SeasonDeco spot="plan-card" />
-    </Section>
+    </Section>}
 
     {!S.routines.length && <EmptyState className="plan-empty" icon="clipboard" title={t('No routines yet.')} text={t('Make one, or grab the starter plan to get going.')}>
       <Button variant="tinted" icon="clipboard" onClick={starterPlanSheet}>{t('Load starter plan')}</Button>

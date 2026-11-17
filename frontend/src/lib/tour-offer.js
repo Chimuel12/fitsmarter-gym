@@ -11,6 +11,7 @@ import { useEffect, useRef } from 'react'
 import { useStore } from '../store/useStore.js'
 import { useUI } from '../store/useUI.js'
 import { tourState, openTour, readTour, shouldOffer, resumeAt } from './tour.js'
+import { STANDALONE } from './demo.js'
 
 /** After the first screen settles: the wait for someone who touches nothing. */
 export const OFFER_SETTLE_MS = 1200
@@ -23,7 +24,7 @@ const EVENTS = ['pointerdown', 'pointermove', 'pointerup', 'pointercancel', 'tou
 
 /** Which question is due for this profile, { kind: 'resume', at } or { kind: 'offer' }, or null. */
 export function offerDue(st = useStore.getState()) {
-  if (!st.S || st.S.active) return null
+  if (STANDALONE || !st.S || st.S.active) return null   // FitSmarter: no first-run question
   const rec = readTour()
   const at = resumeAt(rec)
   if (at) return { kind: 'resume', at }

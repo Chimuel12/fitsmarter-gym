@@ -4,7 +4,7 @@ import { useStore } from '../store/useStore.js'
 import { useUI } from '../store/useUI.js'
 import { t } from '../lib/i18n.js'
 import { TIERS, profileOf } from './tiers.js'
-import { Gem, GemDefs, levelsSheet } from './Hub.jsx'
+import { Gem, GemDefs } from './Hub.jsx'
 import { watchUser, signInGoogle, signInEmail, signOutFs, saveProfile, profilesOf, watchGroups, createGroup, joinGroup, leaveGroup, watchFeed, kudos, syncWorkouts, METRICS, board } from './compete.js'
 import './fitsmarter.css'
 
@@ -27,7 +27,6 @@ function SignIn() {
   }
   return <div className="card fs-signin">
     <h3>{t('Compete with friends')}</h3>
-    <p className="fs-muted">{t('Your workouts stay on this device. Sign in only to share workout summaries with your groups and climb the leaderboard.')}</p>
     <button className="btn fs-full" disabled={busy} onClick={() => signInGoogle().catch(e => { if (e?.code !== 'cancelled' && e?.code !== 'auth/popup-closed-by-user' && e?.code !== 'auth/cancelled-popup-request') toast(t('Google sign-in failed') + (e?.code ? ` (${e.code})` : '')) })}>{t('Continue with Google')}</button>
     <div className="fs-or">{t('or with email')}</div>
     <label className="fs-field">{t('Email')}<input type="email" autoComplete="email" value={email} onChange={e => setEmail(e.target.value)} /></label>
@@ -56,7 +55,6 @@ export default function Compete() {
   const [posts, setPosts] = useState([])
   const [people, setPeople] = useState({})
   const [period, setPeriod] = useState('week'), [metric, setMetric] = useState('points')
-  const [shared, setShared] = useState(null)
   const name = user ? (people[user.uid]?.name || user.displayName || (user.email || '').split('@')[0]) : ''
 
   useEffect(() => { let off; watchUser(u => setUser(u || null)).then(f => { off = f }).catch(() => setUser(null)); return () => off && off() }, [])
@@ -82,7 +80,7 @@ export default function Compete() {
   }, [user, gid])
   useEffect(() => { // share your recent workouts with your groups
     if (!user || !groups.length) return
-    syncWorkouts(user, name, S, prof, groups).then(setShared).catch(() => setShared(null))
+    syncWorkouts(user, name, S, prof, groups).catch(() => {})
   }, [user, groups, S?.workouts?.length])
   const g = groups.find(x => x.id === gid)
   useEffect(() => { if (g) profilesOf(g.members).then(setPeople).catch(() => {}) }, [g?.members?.join()])
@@ -106,16 +104,14 @@ export default function Compete() {
       <button onClick={() => askSheet(t('New group'), t('Group name'), t('e.g. Uni crew'), async v => { if (v.trim()) { const id = await createGroup(user.uid, v.trim()); setGid(id) } })}>+ {t('New group')}</button>
       <button onClick={() => askSheet(t('Join a group'), t('Invite code'), 'ABC123', async v => { try { setGid(await joinGroup(user.uid, v)) } catch (e) { toast(e.message) } }, true)}>{t('Join')}</button>
     </div>
-    {!g ? <div className="card fs-empty-card"><h3>{t('Race your friends')}</h3><p className="fs-muted">{t('Create a group and share its code, or join one with a friend’s code. Your workouts are shared as summaries: sets, volume, best lifts and their levels.')}</p></div> : <>
+    {!g ? <div className="card fs-empty-card"><h3>{t('Race your friends')}</h3><p className="fs-muted">{t('Create a group or join one with a friend’s code.')}</p></div> : <>
       <div className="card">
         <div className="fs-seg">{['week', 'month'].map(p => <button key={p} className={period === p ? 'on' : ''} onClick={() => setPeriod(p)}>{p === 'week' ? t('This week') : t('This month')}</button>)}</div>
-        <div className="fs-seg">{Object.entries(METRICS).map(([k, x]) => <button key={k} className={metric === k ? 'on' : ''} onClick={() => setMetric(k)}>{t(x.n)}</button>)}</div>
+        <div className="fs-seg">{Object.entries(METRICS).filter(([k]) => k === 'points' || k === 'tiers').map(([k, x]) => <button key={k} className={metric === k ? 'on' : ''} onClick={() => setMetric(k)}>{t(x.n)}</button>)}</div>
         {top.length > 0 && <div className="fs-podium">{[1, 0, 2].map(i => top[i] ? <div key={i} className={'p' + (i + 1)}>
           <Avatar p={top[i].p} size={i ? 50 : 64} /><b>{top[i].p.uid === user.uid ? t('You') : String(top[i].p.name).split(' ')[0]}</b><em>{fmtV(top[i].v)} <small>{m.u}</small></em><div className="blk">{i + 1}</div></div> : <div key={i} />)}</div>}
         <div className="fs-board">{b.map((x, i) => <div key={x.p.uid} className={'fs-brow' + (x.p.uid === user.uid ? ' me' : '')}>
           <span className="rk">{i + 1}</span><Avatar p={x.p} /><div><b>{x.p.uid === user.uid ? `${name} (${t('you')})` : x.p.name}</b><small>{t('{0} workouts', x.n)}</small></div><span className="v">{fmtV(x.v)}<small>{m.u}</small></span></div>)}</div>
-        {metric === 'tiers' && <button className="btn fs-full" onClick={() => levelsSheet(prof)}>{t('What do the levels mean?')}</button>}
-        <p className="fs-small fs-muted">{t('Points: 2 per set plus 1 per 250 kg of volume. Weeks start on Monday.')} {shared != null && t('{0} of your workouts from the last 30 days are shared.', shared)}</p>
       </div>
       <div className="card fs-invite"><div><small className="fs-muted">{t('Invite code')}</small><div className="fs-code">{g.id}</div></div>
         <button className="btn" onClick={share}>{t('Invite friends')}</button>

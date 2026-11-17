@@ -1,5 +1,7 @@
 // FitSmarter body hub: every muscle in the tier of its best exercise, growing with the tier,
 // plus the levels explainer and how to log weights. Part of this AGPL fork.
+import { aboutYouSheet } from '../components/StrengthLevel.jsx'
+import { bwSheet } from '../sheets.jsx'
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore.js'
@@ -124,31 +126,30 @@ export default function Hub() {
   const missing = !prof.weight || !S?.birthYear || !height
   return <>
     <div className="hdr"><div style={{ flex: 1 }}><h1>{t('Body')}</h1><div className="sub">{t('Your strength level, muscle by muscle')}</div></div>
-      <button className="btn fs-lvlbtn" onClick={() => levelsSheet(prof)}>{t('Levels')}</button></div>
+      <button className="btn fs-lvlbtn" onClick={() => nav('/stats')}>{t('Stats')}</button></div>
     <div className="fs-hub">
       <GemDefs />
       <div className="fs-tiers">{TIERS.slice(1).map(tr => <button key={tr.id} className={ov?.tier.id === tr.id ? 'on' : ''} onClick={() => levelsSheet(prof)} aria-label={tr.n}>
         <Gem tier={tr} size={26} /><small>{t('{0}%', tr.top)}</small></button>)}</div>
       <div className="fs-stage">
         <div className="fs-call tl">{ov ? <Gem tier={ov.tier} size={34} /> : null}<b>{t('Overall')}</b><small>{ov ? `${ov.tier.n} · ${t('top {0}%', topTxt(ov.pct))}` : t('No lifts yet')}</small></div>
-        <div className="fs-call tr"><b>{t('Balance')}</b><small>{ov ? `${ov.balance}% · ${ov.trained}/${ov.total}` : t('Train every group')}</small></div>
-        <div className="fs-call bl">{trained[0] ? <Gem tier={trained[0][1].tier} size={30} /> : null}<b>{t('Strongest')}</b><small>{trained[0] ? t(MUSCLE_NAME[trained[0][0]]) : '–'}</small></div>
-        <div className="fs-call br"><b>{t('Train next')}</b><small>{ov ? t(MUSCLE_NAME[ov.weakest]) : t('Anything')}</small></div>
+        <div className="fs-call tr"><b>{t('Train next')}</b><small>{ov ? t(MUSCLE_NAME[ov.weakest]) : t('Anything')}</small></div>
         {g ? <div className="fs-bodies"><Body view={g.front} map={map} onMuscle={onMuscle} /><Body view={g.back} map={map} onMuscle={onMuscle} /></div> : <div className="fs-bodies ph" />}
       </div>
-      <button className="btn fs-full fs-lvlrow" onClick={() => levelsSheet(prof)}>{t('What do the levels mean?')}</button>
       <div className="fs-list">{trained.length ? trained.map(([slug, r]) => <button key={slug} className="fs-row" onClick={() => onMuscle(slug)}>
         <Gem tier={r.tier} size={24} /><div><b>{t(MUSCLE_NAME[slug])}</b><small>{nameOf(r.ex)} · {setText(r.ex, r.s, prof.unit)}{r.prim ? '' : ` (${t('assisting')})`}</small></div>
         <span>{r.tier.n}<small>{t('Top {0}%', topTxt(r.pct))}</small></span></button>)
-        : <p className="fs-empty">{t('Log a workout with weights and reps. Each muscle you train lights up in its level color and grows as you get stronger, from Bronze (top 90%) to Symmetric (top 5%).')}</p>}</div>
+        : <p className="fs-empty">{t('Log weights and reps: your muscles light up and grow. Tap a gem for the levels.')}</p>}</div>
     </div>
-    <div className="card fs-prof">
+    {missing && <div className="card fs-prof">
       <h3>{t('For accurate levels')}</h3>
-      <p className="fs-muted">{t('Levels compare you with people of your sex, body weight, age and height.')}</p>
       <label className="fs-field">{t('Height (cm)')}<input type="number" inputMode="numeric" min="120" max="230" defaultValue={height || ''} onBlur={e => saveHeight(e.target.value)} /></label>
       <p className="fs-small fs-muted">{t('Sex: {0} · Birth year: {1} · Body weight: {2}', prof.sex === 'f' ? t('Female') : t('Male'), S?.birthYear || '–', prof.weight ? fmtW(prof.weight, prof.unit) : '–')}</p>
-      {missing && <button className="btn fs-full" onClick={() => nav('/settings')}>{t('Add body weight, sex and birth year')}</button>}
-    </div>
+      <div className="fs-two">
+        {!prof.weight && <button className="btn" onClick={() => bwSheet()}>{t('Body weight')}</button>}
+        {!S?.birthYear && <button className="btn" onClick={() => aboutYouSheet()}>{t('Sex and birth year')}</button>}
+      </div>
+    </div>}
     <p className="fs-credit">{t('FitSmarter is based on openGym (AGPL-3.0).')} <a href="https://github.com/Chimuel12/fitsmarter-gym" target="_blank" rel="noopener noreferrer">{t('Source code')}</a> · <a href="https://github.com/DuarteSantos8/openGym" target="_blank" rel="noopener noreferrer">openGym</a></p>
   </>
 }

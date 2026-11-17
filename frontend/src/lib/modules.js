@@ -74,6 +74,10 @@ const isMap = v => !!v && typeof v === 'object' && !Array.isArray(v)
 // Modules page; the choice itself is kept, so the same profile on a normal build is unchanged.
 let unavailable = new Set()
 export function setUnavailableModules(ids) { unavailable = new Set(Array.isArray(ids) ? ids : []) }
+// FitSmarter: modules that start off until someone switches them on (Settings → Modules), so a
+// new profile sees only the essentials. A choice made on the Modules page still wins.
+let leanOff = new Set()
+export function setLeanDefaults(ids) { leanOff = new Set(Array.isArray(ids) ? ids : []) }
 /** Whether this build has module `id` at all. */
 export const moduleBuilt = id => !unavailable.has(id)
 
@@ -82,6 +86,7 @@ export function isOn(S, id) {
   if (unavailable.has(id)) return false
   const v = isMap(S?.modules) ? S.modules[id] : undefined
   if (typeof v === 'boolean') return v
+  if (leanOff.has(id)) return false
   // Before 1.4.4 the check-in had its own switch in Look & Home; it decides until Modules does.
   if (id === 'checkin') return S?.checkIn !== false
   return true
