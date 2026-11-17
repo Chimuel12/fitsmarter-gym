@@ -90,3 +90,12 @@
 .fs-empty-card{margin:0 16px 16px}
 .fs-credit{margin:0 16px 28px;font-size:11px;color:var(--muted,#8a8f98);text-align:center}
 .fs-credit a{color:inherit;text-decoration:underline}
+
+/* Settings → Google Drive */
+.fs-drive{display:flex;flex-direction:column;gap:12px}
+.fs-kv{display:flex;justify-content:space-between;gap:12px;font-size:15px}
+.fs-kv span{color:var(--text-2,#8e8e93)}
+.fs-kv b{font-weight:600;text-align:right;overflow-wrap:anywhere}
+.fs-kv a{color:var(--acc);text-decoration:none}
+.fs-primary{background:var(--acc)!important;color:var(--on-acc,#fff)!important}
+.fs-warn{color:var(--orange,#ff9f0a)}

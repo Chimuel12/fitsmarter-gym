@@ -14,7 +14,7 @@ import { rateOf, setValue, percentileOf, tierFor, tierIndex } from './tiers.js'
 
 const V = '10.14.1', CDN = `https://www.gstatic.com/firebasejs/${V}`
 let fb = null
-async function sdk() {
+export async function sdk() {
   if (fb) return fb
   const [{ initializeApp }, A, F] = await Promise.all([
     import(/* @vite-ignore */ `${CDN}/firebase-app.js`), import(/* @vite-ignore */ `${CDN}/firebase-auth.js`), import(/* @vite-ignore */ `${CDN}/firebase-firestore.js`)])
@@ -31,8 +31,9 @@ export async function watchUser(cb) {
 }
 // The web client of the Google provider (Firebase Auth): Android asks Google for a token for it.
 const GOOGLE_WEB_CLIENT = '935670655430-vs349l9s67139r1h9piutif039oj647j.apps.googleusercontent.com'
-export async function signInGoogle() {
+export async function signInGoogle({ scopes = [] } = {}) {
   const { A, auth } = await sdk(), p = new A.GoogleAuthProvider()
+  scopes.forEach(s => p.addScope(s))
   if (await isAndroid()) {
     // Google blocks its sign-in page inside the app's WebView: the phone's account picker signs in.
     const { registerPlugin } = await import('@capacitor/core')

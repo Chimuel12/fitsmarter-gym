@@ -81,8 +81,15 @@ export const getLang = () => lang
 export const dateLocale = () => DATE_LOCALES[lang] || 'en-GB'
 export const getVersion = () => version
 
+// FitSmarter (this fork, VITE_STANDALONE): every visible string says FitSmarter, in every language.
+const FITSMARTER = import.meta.env?.VITE_STANDALONE === '1'
+export const brand = v => (FITSMARTER && typeof v === 'string' && v.includes('openGym') ? v.replace(/(?<![\w/])openGym(?![\w/.-]*\.(?:md|json|apk))/g, 'FitSmarter') : v)
+
 // Translate a source string; {0},{1}… are replaced with args (also on the English fallback).
 export function t(s, ...args) {
+  return brand(tRaw(s, ...args))
+}
+function tRaw(s, ...args) {
   let v = dict[s] || s
   // A plural key (an object of forms, read by tn()) reached through plain t() — a call site
   // that was not moved to tn(). Pick a form rather than crash on replaceAll.
@@ -128,7 +135,7 @@ export function tn(one, other, n, ...rest) {
       let v = form
       const args = [n, ...rest]
       for (let i = 0; i < args.length; i++) v = v.replaceAll('{' + i + '}', args[i])
-      return v
+      return brand(v)
     }
   }
   return t(n === 1 ? one : other, n, ...rest)
@@ -144,7 +151,7 @@ export function tnf(one, other, n, shown, ...rest) {
   if (!v) v = (n === 1 ? dict[one] : (typeof forms === 'string' ? forms : null)) || (n === 1 ? one : other)
   const args = [shown, ...rest]
   for (let i = 0; i < args.length; i++) v = v.replaceAll('{' + i + '}', args[i])
-  return v
+  return brand(v)
 }
 
 // The English steps and descriptions of 5,000+ exercises are too big to sit in the bundle every

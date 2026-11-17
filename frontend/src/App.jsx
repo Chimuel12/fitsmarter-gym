@@ -1,5 +1,5 @@
 import { Suspense, lazy, useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { DEMO } from './lib/demo.js'
+import { DEMO, STANDALONE } from './lib/demo.js'
 import { useDailyWebdav } from './lib/use-daily-webdav.js'
 import { offlineBuild } from './lib/build-caps.js'
 import { hideBoot } from './lib/boot.js'
@@ -120,6 +120,9 @@ const SettingsRoute = lazyView(() => import('./views/Settings.jsx').then(m => ({
 // FitSmarter: body hub with strength levels, and competing with friends
 const Hub = lazyView(() => import('./fitsmarter/Hub.jsx'))
 const Compete = lazyView(() => import('./fitsmarter/Compete.jsx'))
+// FitSmarter: the phone app offers its own updates (fitsmarter/AutoUpdate.jsx), only in the app.
+const AutoUpdate = lazy(() => import('./fitsmarter/AutoUpdate.jsx'))
+const Drive = lazyView(() => import('./fitsmarter/Drive.jsx'))
 // The app tour's overlay (components/Tour.jsx): fetched when it opens, never before.
 const loadTour = () => import('./components/Tour.jsx')
 const Tour = lazy(loadTour)
@@ -389,6 +392,8 @@ function Shell() {
   useTourOffer(setupDone, loadTour)
   // The boot screen in index.html covers the start; it goes once there is something to show.
   useEffect(() => { if (ready || authed) hideBoot() }, [ready, authed])
+  // FitSmarter: Google Drive sync (fitsmarter/drive.js), once the profile is loaded.
+  useEffect(() => { if (STANDALONE && ready) import('./fitsmarter/drive.js').then(m => m.startDriveSync()).catch(() => {}) }, [ready])
   if (!ready && !authed) return (
     <div id="app">
       <div style={{ paddingTop: '44vh', display: 'flex', justifyContent: 'center' }}>
@@ -413,6 +418,7 @@ function Shell() {
       <Route path="/library" element={<Library />} />
       <Route path="/body" element={<Hub />} />
       <Route path="/compete" element={<Compete />} />
+      <Route path="/drive" element={<Drive />} />
       <Route path="/muscles" element={<Muscles />} />
       {isOn(S, 'community') && <Route path="/community" element={<Community />} />}
       <Route path="/structural-balance" element={<StructuralBalance />} />
@@ -459,6 +465,7 @@ function Shell() {
           would ride along with the page for the length of it. Decides for itself when to show —
           including on the sign-in screen, when the server has just ended the session. */}
       <SyncBanner />
+      {MOBILE && authed && <Suspense fallback={null}><AutoUpdate /></Suspense>}
       {!noTabs && <TabBar onStart={startOrPreview} onPick={startPickerSheet} />}
       {!noTabs && authed && <ScrollTopButton off={loc.pathname === '/workout'} path={loc.pathname} />}
       <RestTimer />

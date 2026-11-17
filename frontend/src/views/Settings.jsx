@@ -1,4 +1,5 @@
 import { showsDashboard } from '../lib/trainer-api.js'
+import { readCfg as driveCfg } from '../fitsmarter/drive.js'
 import { recordHintsOn } from '../lib/set-records.js'
 import { setRecoveryHint } from '../lib/recovery-hint.js'
 import { useEffect, useRef, useState, forwardRef, useSyncExternalStore } from 'react'
@@ -1503,6 +1504,10 @@ function SettingsRoot({ ctx, preview, open, user, sync, home, go, entryKey }) {
           <Icon name="chevronRight" className="lrow-c" />
         </button>
       </Section>}
+      {/* FitSmarter: the sync is Google Drive (fitsmarter/drive.js). */}
+      {STANDALONE && <Section>
+        <Row icon="cloud" iconTint="var(--acc)" title="Google Drive" value={driveLine()} accessory="chevron" onClick={() => nav('/drive')} className="sp-root-row" />
+      </Section>}
       {ROOT_GROUPS.map(g => ({ ...g, ids: g.ids.filter(id => onRoot(id, ctx) && !(STANDALONE && id === 'integrations' && !MOBILE)) })).filter(g => g.ids.length).map(g => (
         <Section key={g.ids[0]} title={g.title && t(g.title)}>
           {g.ids.map(id => <Row key={id} icon={PAGES[id].icon} iconTint={PAGES[id].tint} title={t(PAGES[id].title)}
@@ -1521,6 +1526,13 @@ function SettingsRoot({ ctx, preview, open, user, sync, home, go, entryKey }) {
       <div className="dim small sp-version">{STANDALONE ? 'FitSmarter' : 'openGym'} v{__APP_VERSION__}</div>
     </>}
   </div>
+}
+
+// FitSmarter: what the Google Drive row says on the Settings root.
+function driveLine() {
+  const c = driveCfg()
+  if (!c.on) return t('Off')
+  return c.email || t('On')
 }
 
 // The whole point is that the two scales are one judgement counted from opposite ends, and a

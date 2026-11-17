@@ -10,8 +10,8 @@ android {
         applicationId "com.fitsmarter.app"  // FitSmarter
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 46
-        versionName "1.4.5"
+        versionCode 200
+        versionName "2.0.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -118,6 +118,7 @@ dependencies {
     implementation "androidx.credentials:credentials:1.5.0"
     implementation "androidx.credentials:credentials-play-services-auth:1.5.0"
     implementation "com.google.android.libraries.identity.googleid:googleid:1.1.1"
+    implementation "com.google.android.gms:play-services-auth:21.3.0"
     // The sharper animations as Play asset packs (AnimationPacksPlugin in src/play): the Play
     // build only. The sideloaded APK has no Play Store behind it and keeps its built-in ones.
     playImplementation "com.google.android.play:asset-delivery:$assetDeliveryVersion"
