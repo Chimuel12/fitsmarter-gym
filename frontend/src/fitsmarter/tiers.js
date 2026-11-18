@@ -182,17 +182,70 @@ export function bestByExercise(S, prof) {
   for (const [id, b] of Object.entries(out)) { b.pct = percentileOf(id, b.v, prof); b.tier = tierFor(b.pct) }
   return out
 }
-/** Muscle → { pct, tier, ex, s, prim } from openGym's muscle weights. */
+/* ---------- the latest picture, not the all-time best ---------- */
+// A body that shows what you lift now: each exercise is rated by its most recent session (its best
+// set that day), so 25 kg yesterday replaces 35 kg months ago, levels and muscle size included.
+// The previous session and the all-time record ride along for the trend and the progression.
+const whenOf = w => { const t = Date.parse(w?.start) || Number(w?.start) || Date.parse(w?.date) || Date.parse(w?.d); return Number.isFinite(t) ? t : 0 }
+export function latestByExercise(S, prof) {
+  const sessions = {}
+  const ws = [...(S?.workouts || [])].sort((a, b) => whenOf(a) - whenOf(b))
+  for (const w of ws) for (const e of w.entries || []) {
+    if (!rateOf(e.id)) continue
+    const dbLoad = e?.target?.dbLoad || 'as'
+    const done = (e.sets || []).filter(doneSet)
+    if (!done.length) continue
+    let top = null
+    for (const s of done) { const v = setValue(e.id, s, S.unit, dbLoad); if (v > 0 && (!top || v > top.v)) top = { v, s } }
+    if (!top) continue
+    ;(sessions[e.id] = sessions[e.id] || []).push({ ...top, at: whenOf(w), sets: done, dbLoad })
+  }
+  const out = {}
+  for (const [id, list] of Object.entries(sessions)) {
+    const last = list[list.length - 1], prev = list.length > 1 ? list[list.length - 2] : null
+    const best = list.reduce((b, x) => (x.v > b.v ? x : b), list[0])
+    out[id] = { ...last, prev, best, pct: percentileOf(id, last.v, prof), tier: tierFor(percentileOf(id, last.v, prof)),
+      trend: prev ? (last.v > prev.v * 1.005 ? 'up' : last.v < prev.v * 0.995 ? 'down' : 'flat') : null,
+      change: prev ? Math.round((last.v / prev.v - 1) * 1000) / 10 : null }
+  }
+  return out
+}
+/** Muscle → { pct, tier, ex, s, prim, at, trend, change, next } from each muscle's most recent session.
+ *  The exercises that work it as a main mover decide; one that only assists counts when nothing
+ *  else has trained it, at 60 %. Of two sessions, the later one; on the same day, the stronger. */
 export function muscleTiers(S, prof) {
-  const best = bestByExercise(S, prof), out = {}
-  for (const [id, b] of Object.entries(best)) {
+  const latest = latestByExercise(S, prof), out = {}
+  for (const [id, b] of Object.entries(latest)) {
     for (const [m, wgt] of Object.entries(musclesOf(exerciseOf(id)) || {})) {
       const prim = wgt >= 0.75, pct = prim ? b.pct : b.pct * 0.6
-      if (!out[m] || pct > out[m].pct) out[m] = { pct, tier: tierFor(pct), ex: id, s: b.s, prim }
+      const cur = out[m]
+      const better = !cur || (prim && !cur.prim) || (prim === cur.prim && (b.at > cur.at || (b.at === cur.at && pct > cur.pct)))
+      if (better) out[m] = { pct, tier: tierFor(pct), ex: id, s: b.s, prim, at: b.at, trend: b.trend, change: b.change, best: b.best, prev: b.prev,
+        next: overloadTarget(id, b, S.unit) }
     }
   }
   return out
 }
+
+/* ---------- progressive overload ---------- */
+// Double progression in a 6 to 12 rep range: add a rep each session at the same weight; once the
+// top set reaches 12, add the smallest sensible step and drop back to 8. Body-weight lifts add reps.
+export const REP_LOW = 8, REP_HIGH = 12
+export function weightStep(exOrId, unit = 'kg') {
+  const eq = (typeof exOrId === 'string' ? exerciseOf(exOrId) : exOrId)?.eq || ''
+  if (unit === 'lb') return BELL.test(eq) ? 5 : /barbell|ez|smith|trap/.test(eq) ? 5 : 10
+  return BELL.test(eq) ? 2 : /barbell|ez|smith|trap/.test(eq) ? 2.5 : 5
+}
+/** What to aim for next time from a session { s: its top set }: { w, r, why: 'reps' | 'weight' }. */
+export function overloadTarget(exOrId, session, unit = 'kg') {
+  const s = session?.s
+  if (!s) return null
+  const w = Number(s.w) || 0, r = Number(s.r) || 0
+  if (isRepsRated(exOrId) || !w) return { w, r: r + 1, why: 'reps' }
+  if (r >= REP_HIGH) return { w: Math.round((w + weightStep(exOrId, unit)) * 100) / 100, r: REP_LOW, why: 'weight' }
+  return { w, r: r + 1, why: 'reps' }
+}
+
 const MAJORS = ['chest', 'front-delts', 'lats', 'upper-back', 'biceps', 'triceps', 'quadriceps', 'hamstring', 'gluteal', 'abs', 'calves']
 /** Overall level, balance and strongest/weakest across the major groups. */
 export function overall(map) {

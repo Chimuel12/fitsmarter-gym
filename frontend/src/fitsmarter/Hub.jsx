@@ -69,6 +69,10 @@ function Body({ view, map, onMuscle }) {
 const nameOf = id => { const ex = exerciseOf(id); return ex ? exerciseNameFor(ex) : id }
 const fmtW = (kg, unit) => { const v = unit === 'lb' ? kg / LB : kg; return `${Math.round(v * 2) / 2} ${unit}` }
 const setText = (id, s, unit) => (isRepsRated(id) ? t('{0} reps', s.r) : `${+(+s.w).toFixed(1)} ${unit} × ${s.r}`)
+const ARROW = { up: '▲', down: '▼', flat: '=' }
+const Trend = ({ r }) => r?.trend ? <i className={'fs-trend ' + r.trend} aria-label={t(r.trend === 'up' ? 'Stronger than last time' : r.trend === 'down' ? 'Weaker than last time' : 'Same as last time')}>{ARROW[r.trend]}{r.change ? ` ${Math.abs(r.change)}%` : ''}</i> : null
+const nextText = (id, n, unit) => (n ? (isRepsRated(id) || !n.w ? t('{0} reps', n.r) : `${+(+n.w).toFixed(2)} ${unit} × ${n.r}`) : '')
+const dayText = ts => (ts ? new Date(ts).toLocaleDateString(undefined, { day: 'numeric', month: 'short' }) : '')
 const BENCH = () => CATALOGUE.find(e => (e.n || '').toLowerCase() === 'barbell bench press')
 
 export function levelsSheet(prof) {
@@ -103,7 +107,14 @@ function muscleSheet(slug, map, prof, nav) {
     <h2>{t(MUSCLE_NAME[slug])}</h2>
     {r ? <>
       <div className="fs-mhead"><Gem tier={r.tier} size={56} /><div><b>{r.tier.n}</b><span>{t('Top {0}% of gym-goers like you', topTxt(r.pct))}</span></div></div>
-      <p><b>{t('Best')}:</b> {nameOf(r.ex)} · {setText(r.ex, r.s, prof.unit)}{r.prim ? '' : ` · ${t('assisting muscle, counts 60%')}`}</p>
+      <div className="fs-kv"><span>{t('Latest')} · {dayText(r.at)}</span><b>{nameOf(r.ex)} · {setText(r.ex, r.s, prof.unit)} <Trend r={r} /></b></div>
+      {r.prev && <div className="fs-kv"><span>{t('Before')} · {dayText(r.prev.at)}</span><b>{setText(r.ex, r.prev.s, prof.unit)}</b></div>}
+      {r.best && r.best.at !== r.at && r.best.at !== r.prev?.at && <div className="fs-kv"><span>{t('Record')} · {dayText(r.best.at)}</span><b>{setText(r.ex, r.best.s, prof.unit)}</b></div>}
+      {r.next && <div className="fs-overload"><b>{t('Progressive overload')}</b>
+        <span>{t('Next time on {0}: {1}', nameOf(r.ex), nextText(r.ex, r.next, prof.unit))}</span>
+        <small>{r.next.why === 'weight' ? t('You reached {0} reps: add weight and start again at {1}.', 12, 8) : t('Same weight, one more rep. At {0} reps you add weight.', 12)}</small></div>}
+      {!r.prim && <p className="fs-small fs-muted">{t('assisting muscle, counts 60%')}</p>}
+      <p className="fs-small fs-muted">{t('Levels and muscle size follow your most recent session, not your all-time best.')}</p>
       {nx && <p className="fs-next"><Gem tier={nx.tier} size={18} /> {t('Next: {0} at {1} × 10 on {2}', nx.tier.n, isRepsRated(r.ex) ? t('{0} reps', Math.ceil(nx.value)) : fmtW(nx.value, prof.unit), nameOf(r.ex))}</p>}
     </> : <p className="fs-muted">{t('Not trained yet. Log one of these to light it up:')}</p>}
     <div className="fs-sug">{sug.map(e => <div key={e.id}>{exerciseNameFor(e)}</div>)}</div>
@@ -137,7 +148,8 @@ export default function Hub() {
         {g ? <div className="fs-bodies"><Body view={g.front} map={map} onMuscle={onMuscle} /><Body view={g.back} map={map} onMuscle={onMuscle} /></div> : <div className="fs-bodies ph" />}
       </div>
       <div className="fs-list">{trained.length ? trained.map(([slug, r]) => <button key={slug} className="fs-row" onClick={() => onMuscle(slug)}>
-        <Gem tier={r.tier} size={24} /><div><b>{t(MUSCLE_NAME[slug])}</b><small>{nameOf(r.ex)} · {setText(r.ex, r.s, prof.unit)}{r.prim ? '' : ` (${t('assisting')})`}</small></div>
+        <Gem tier={r.tier} size={24} /><div><b>{t(MUSCLE_NAME[slug])}</b><small>{nameOf(r.ex)} · {setText(r.ex, r.s, prof.unit)} <Trend r={r} />{r.prim ? '' : ` (${t('assisting')})`}</small>
+          {r.next && <small className="fs-nextline">{t('Next: {0}', nextText(r.ex, r.next, prof.unit))}</small>}</div>
         <span>{r.tier.n}<small>{t('Top {0}%', topTxt(r.pct))}</small></span></button>)
         : <p className="fs-empty">{t('Log weights and reps: your muscles light up and grow. Tap a gem for the levels.')}</p>}</div>
     </div>

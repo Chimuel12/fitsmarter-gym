@@ -99,3 +99,11 @@
 .fs-kv a{color:var(--acc);text-decoration:none}
 .fs-primary{background:var(--acc)!important;color:var(--on-acc,#fff)!important}
 .fs-warn{color:var(--orange,#ff9f0a)}
+
+/* Body: trend, progressive overload */
+.fs-trend{font-style:normal;font-weight:700;font-size:11px;margin-left:4px}
+.fs-trend.up{color:#30d158}.fs-trend.down{color:#ff453a}.fs-trend.flat{color:var(--muted,#8a8f98)}
+.fs-nextline{display:block;color:var(--acc)!important;font-weight:600;margin-top:2px}
+.fs-overload{display:flex;flex-direction:column;gap:4px;margin:12px 0;padding:12px 14px;border-radius:14px;background:color-mix(in srgb,var(--acc) 14%,transparent)}
+.fs-overload b{color:var(--acc)}
+.fs-sheet .fs-kv{margin:8px 0}

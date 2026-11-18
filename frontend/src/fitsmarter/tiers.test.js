@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { CATALOGUE } from '../lib/exercises.js'
-import { rateOf, percentileOf, tierFor, weightAtTop, setValue, muscleTiers, overall, profileOf, TIERS } from './tiers.js'
+import { rateOf, percentileOf, tierFor, weightAtTop, setValue, muscleTiers, overall, profileOf, TIERS, latestByExercise, overloadTarget, tierIndex } from './tiers.js'
 
 const byName = n => CATALOGUE.find(e => (e.n || '').toLowerCase() === n)
 const MAN = { sex: 'm', weight: 80, height: 178, birthYear: 1995 }
@@ -56,5 +56,40 @@ describe('logged sets', () => {
     expect(p).toMatchObject({ sex: 'f', birthYear: 2000, height: 170 })
     expect(p.weight).toBeCloseTo(63.5, 1)
     expect(TIERS).toHaveLength(9)
+  })
+})
+
+describe('the body follows the latest session', () => {
+  const W = (date, w, r = 10) => ({ id: date, date, entries: [{ id: bench().id, sets: [{ w, r, done: true }] }] })
+  it('uses yesterday\'s 25 kg, not the 70 kg from months ago', () => {
+    const S = { unit: 'kg', workouts: [W('2026-11-17', 25), W('2026-06-01', 70)] }
+    const map = muscleTiers(S, MAN)
+    expect(map.chest.s.w).toBe(25)
+    expect(map.chest.tier.id).toBe(tierFor(percentileOf(bench(), 25, MAN)).id)
+    expect(tierIndex(map.chest.tier.id)).toBeLessThan(tierIndex(tierFor(percentileOf(bench(), 70, MAN)).id))
+    expect(map.chest.trend).toBe('down')
+    expect(map.chest.best.s.w).toBe(70)
+  })
+  it('goes back up when you lift more again', () => {
+    const S = { unit: 'kg', workouts: [W('2026-06-01', 70), W('2026-11-17', 25), W('2026-11-18', 30)] }
+    const b = latestByExercise(S, MAN)[bench().id]
+    expect(b.s.w).toBe(30)
+    expect(b.trend).toBe('up')
+    expect(b.prev.s.w).toBe(25)
+  })
+})
+
+describe('progressive overload', () => {
+  it('adds a rep until 12, then 2.5 kg on a barbell and back to 8 reps', () => {
+    expect(overloadTarget(bench(), { s: { w: 60, r: 9 } })).toEqual({ w: 60, r: 10, why: 'reps' })
+    expect(overloadTarget(bench(), { s: { w: 60, r: 12 } })).toEqual({ w: 62.5, r: 8, why: 'weight' })
+  })
+  it('adds 2 kg on dumbbells', () => {
+    const curl = CATALOGUE.find(e => /dumbbell/.test(e.eq || '') && /curl/.test((e.n || '').toLowerCase()))
+    expect(overloadTarget(curl, { s: { w: 12, r: 12 } })).toEqual({ w: 14, r: 8, why: 'weight' })
+  })
+  it('is part of each trained muscle', () => {
+    const S = { unit: 'kg', workouts: [{ id: 'a', date: '2026-11-18', entries: [{ id: bench().id, sets: [{ w: 60, r: 12, done: true }] }] }] }
+    expect(muscleTiers(S, MAN).chest.next).toEqual({ w: 62.5, r: 8, why: 'weight' })
   })
 })

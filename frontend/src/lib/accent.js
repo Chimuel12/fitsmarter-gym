@@ -25,7 +25,8 @@ import { ACCENTS, ACCENT_INK } from './format.js'
 //   iOS green it always had and nothing changes under anyone on an update (accent.migration.test.js).
 //   An older app reading 'brand' does not know it and draws its own default, this same green.
 export const NEW_ACCENT = 'brand'
-export const DEFAULT_ACCENT = 'lime'
+// FitSmarter (VITE_STANDALONE): blue whatever the copy says, an imported openGym profile included.
+export const DEFAULT_ACCENT = import.meta.env?.VITE_STANDALONE === '1' ? 'brand' : 'lime'
 export const CUSTOM = 'custom'
 
 const HEX = /^#[0-9a-f]{6}$/i
