@@ -4,10 +4,13 @@
 import * as THREE from 'three'
 
 export const clock = { value: 0 }
+// How carved the abs and chest look, 0 (smooth) to 1 (deep), set from the abs' level.
+export const definition = { value: 0 }
 
 const NOISE = /* glsl */`
 varying vec3 vFsPos;
 uniform float uFsTime;
+uniform float uFsDef;
 float fsHash(vec3 p){ p = fract(p * 0.3183099 + 0.1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }
 float fsNoise(vec3 x){ vec3 i = floor(x), f = fract(x); f = f * f * (3.0 - 2.0 * f);
   return mix(mix(mix(fsHash(i), fsHash(i + vec3(1,0,0)), f.x), mix(fsHash(i + vec3(0,1,0)), fsHash(i + vec3(1,1,0)), f.x), f.y),
@@ -19,6 +22,35 @@ vec2 fsCells(vec3 p){ vec3 i = floor(p), f = fract(p); float d1 = 8.0, d2 = 8.0,
     vec3 g = vec3(x, y, z), o = vec3(fsHash(i + g), fsHash(i + g + 7.1), fsHash(i + g + 13.7));
     float d = length(g + o - f); if (d < d1) { d2 = d1; d1 = d; id = fsHash(i + g + 3.3); } else if (d < d2) d2 = d; }
   return vec2(d2 - d1, id); }
+`
+
+// Muscle definition as relief on the front of the torso: six abs either side of the linea alba,
+// the line under the chest, the obliques' edge. A height field turned into bumped normals.
+const RELIEF = /* glsl */`
+{
+  vec3 q = vFsPos; float ax = abs(q.x);
+  float h = 0.0;
+  if (q.z > -0.06 && q.y > 0.95 && q.y < 1.34) {
+    // abs: soft domed pads between the grooves, narrowing towards the navel
+    float halfW = 0.064 - (1.21 - q.y) * 0.05;
+    float col = smoothstep(0.0, 0.03, halfW - ax) * smoothstep(0.0, 0.016, ax - 0.002);
+    float g1 = smoothstep(0.0, 0.022, abs(q.y - 1.212)), g2 = smoothstep(0.0, 0.02, abs(q.y - 1.14));
+    float g3 = smoothstep(0.0, 0.02, abs(q.y - 1.07)), g4 = smoothstep(0.0, 0.03, abs(q.y - 0.99));
+    float rows = g1 * g2 * g3 * g4;
+    float absH = col * rows * smoothstep(0.96, 0.99, q.y) * (1.0 - smoothstep(1.21, 1.23, q.y));
+    // the line under the chest, curving up to the armpits
+    float pecLine = 1.0 - smoothstep(0.0, 0.016, abs(q.y - (1.245 + 0.9 * q.x * q.x)));
+    // the obliques' edge beside the abs
+    float obl = 1.0 - smoothstep(0.0, 0.012, abs(ax - (0.085 + 0.06 * (1.18 - q.y))));
+    h = absH * 0.007 - pecLine * 0.004 * step(ax, 0.17) - obl * 0.003 * step(q.y, 1.2) * step(0.98, q.y);
+  }
+  h *= uFsDef;
+  vec3 sx = dFdx(-vViewPosition), sy = dFdy(-vViewPosition);
+  vec3 r1 = cross(sy, normal), r2 = cross(normal, sx);
+  float det = dot(sx, r1);
+  vec3 grad = sign(det) * (dFdx(h) * r1 + dFdy(h) * r2);
+  normal = normalize(abs(det) * normal - grad);
+}
 `
 
 // Each kind: what it does to the colour (diffuseColor.rgb) and the glow (totalEmissiveRadiance).
@@ -67,15 +99,16 @@ const KINDS = {
 
 /** Give a material the pattern of a level (no-op for levels without one). */
 export function withPattern(mat, kind) {
-  const body = KINDS[kind]
-  if (!body) return mat
+  const body = KINDS[kind] || ''
   mat.onBeforeCompile = shader => {
     shader.uniforms.uFsTime = clock
+    shader.uniforms.uFsDef = definition
     shader.vertexShader = shader.vertexShader
       .replace('#include <common>', '#include <common>\nvarying vec3 vFsPos;')
       .replace('#include <worldpos_vertex>', '#include <worldpos_vertex>\nvFsPos = (modelMatrix * vec4(transformed, 1.0)).xyz;')
     shader.fragmentShader = shader.fragmentShader
       .replace('#include <common>', '#include <common>\n' + NOISE)
+      .replace('#include <normal_fragment_maps>', '#include <normal_fragment_maps>\n' + RELIEF)
       .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n{' + body + '}')
   }
   mat.customProgramCacheKey = () => 'fs-' + kind

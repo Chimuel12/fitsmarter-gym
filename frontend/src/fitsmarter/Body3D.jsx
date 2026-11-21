@@ -9,9 +9,8 @@ import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 're
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
-import { MarchingCubes } from 'three/examples/jsm/objects/MarchingCubes.js'
-import { makeBody, BOUNDS, fillGrid } from './sculpt.js'
-import { withPattern, clock as patternClock } from './patterns.js'
+import { loadHuman, shape, regionMap, geometryOf } from './human.js'
+import { withPattern, clock as patternClock, definition } from './patterns.js'
 import { tierIndex, TIERS } from './tiers.js'
 import { muscleScale } from './skins.js'
 
@@ -33,55 +32,9 @@ const LOOK = {
 }
 const look = id => withPattern((LOOK[id] || LOOK.none)(), id)
 
-/* ---------- the sculpture: the body's distance field turned into one smooth surface ---------- */
-const RES = 128
-const SIZE = BOUNDS.max.map((v, i) => v - BOUNDS.min[i]), MID = BOUNDS.max.map((v, i) => (v + BOUNDS.min[i]) / 2)
+/* ---------- colour: a hint of each muscle's own level on the skin ---------- */
 const hex = c => [((c >> 16) & 255) / 255, ((c >> 8) & 255) / 255, (c & 255) / 255]
 const TINT = Object.fromEntries(TIERS.map(t => [t.id, hex(parseInt(t.c.slice(1), 16))]))
-// marble veins: thin dark lines from a cheap wavy pattern (only on the marble level)
-const vein = (x, y, z) => { const v = Math.sin(31 * x + 9 * Math.sin(14 * y + 6 * z) + 22 * z + 5 * Math.sin(40 * y)); return Math.abs(v) < 0.06 ? 0.8 : 1 }
-// The grid is sculpted in a worker; without workers (old browsers, tests) right here.
-let worker = null, seq = 0
-const waiting = new Map()
-function gridFor(states) {
-  try {
-    if (!worker) {
-      worker = new Worker(new URL('./sculpt.worker.js', import.meta.url), { type: 'module' })
-      worker.onmessage = e => { waiting.get(e.data.id)?.(e.data.field); waiting.delete(e.data.id) }
-    }
-    const id = ++seq
-    return new Promise(ok => { waiting.set(id, ok); worker.postMessage({ id, states, res: RES }) })
-  } catch { return Promise.resolve(fillGrid(states, RES)) }
-}
-/** Sculpt the body for these muscle states, then colour it: a hint of each muscle's level, marble veins. */
-async function sculpt(mc, states, { marble = false, tint = true } = {}) {
-  const tok = (mc.userData.tok || 0) + 1; mc.userData.tok = tok
-  const grid = await gridFor(states)
-  if (mc.userData.tok !== tok) return   // a newer sculpt is on its way
-  mc.reset(); mc.field.set(grid); mc.update()
-  const { nearest } = makeBody(states)
-  const pos = mc.positionArray, n = mc.count
-  let col = mc.geometry.getAttribute('color')
-  if (!col || col.array.length < pos.length) { col = new THREE.BufferAttribute(new Float32Array(pos.length), 3); mc.geometry.setAttribute('color', col) }
-  const c = col.array
-  for (let i = 0; i < n; i++) {
-    // positions are in the grid's own space (−1…1); back to metres for the lookups
-    const x = MID[0] + pos[i * 3] * SIZE[0] / 2, y = MID[1] + pos[i * 3 + 1] * SIZE[1] / 2, z = MID[2] + pos[i * 3 + 2] * SIZE[2] / 2
-    let r = 1, g = 1, b = 1
-    if (tint) { const m = nearest(x, y, z), st = m && states[m]; if (st?.tier) { const t = TINT[st.tier]; r = 0.7 + 0.3 * t[0]; g = 0.7 + 0.3 * t[1]; b = 0.7 + 0.3 * t[2] } }
-    if (marble) { const v = vein(x, y, z); r *= v; g *= v; b *= v }
-    c[i * 3] = r; c[i * 3 + 1] = g; c[i * 3 + 2] = b
-  }
-  col.needsUpdate = true
-  col.updateRanges = [{ start: 0, count: n * 3 }]
-}
-function makeSculpture(material) {
-  const mc = new MarchingCubes(RES, material, false, false, 300000)
-  mc.isolation = 0
-  mc.scale.set(SIZE[0] / 2, SIZE[1] / 2, SIZE[2] / 2)
-  mc.position.set(MID[0], MID[1], MID[2])
-  return mc
-}
 
 /* ---------- sparkles for gemstone levels, a burst for the level-up ---------- */
 function starTexture() {
@@ -121,8 +74,13 @@ const Body3D = forwardRef(function Body3D({ map, skin = 'none', level = -1, onMu
     const rim = new THREE.DirectionalLight(0x7fb2ff, 1.6); rim.position.set(-2, 1.5, -2); scene.add(rim)
     const glint = [new THREE.PointLight(0xffffff, 0, 4), new THREE.PointLight(0xffffff, 0, 4)]; glint.forEach(l => scene.add(l))
     const fig = new THREE.Group(); scene.add(fig)
-    const body = makeSculpture(look('none')); body.material.vertexColors = true; fig.add(body)
-    let nearestOf = () => null
+    const body = new THREE.Mesh(new THREE.BufferGeometry(), look('none')); body.material.vertexColors = true; fig.add(body)
+    let human = null, regionOf = () => null, pending = null
+    loadHuman().then(h => {
+      human = h; regionOf = regionMap(h)
+      body.geometry.dispose(); body.geometry = geometryOf(h)
+      if (pending) api.current?.apply(pending)
+    }).catch(() => setNogl(true))
     const twinkle = sparkles(70, [1.1, 1.9, 0.6], 0xffffff); twinkle.visible = false; scene.add(twinkle)
     const burst = sparkles(160, [0.1, 0.1, 0.1], 0xffffff); burst.visible = false; scene.add(burst)
     const controls = new OrbitControls(camera, renderer.domElement)
@@ -141,7 +99,8 @@ const Body3D = forwardRef(function Body3D({ map, skin = 'none', level = -1, onMu
       pt.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1)
       ray.setFromCamera(pt, camera)
       const hit = ray.intersectObject(body, false)[0]
-      const slug = hit && nearestOf(hit.point.x, hit.point.y, hit.point.z)
+      const local = hit && body.worldToLocal(hit.point.clone())
+      const slug = hit && hit.face && regionOf(hit.face.a, local.z)
       if (slug) api.current?.onMuscle?.(slug)
     }
     renderer.domElement.addEventListener('pointerdown', onDown)
@@ -186,15 +145,28 @@ const Body3D = forwardRef(function Body3D({ map, skin = 'none', level = -1, onMu
         const old = body.material, mat = look(state.skin)
         mat.vertexColors = true
         body.material = mat; old.dispose?.()
-        // each muscle's size and definition from its own level
-        const states = {}
-        for (const [slug, r] of Object.entries(state.map || {})) {
-          const lv = tierIndex(r.tier.id)
-          states[slug] = { grow: 0.82 + (muscleScale(r, slug, state.level) - 0.78) * 0.8, def: Math.min(1, (lv + 1) / 9), tier: r.tier.id }
-        }
+        if (!human) { pending = state; return }
+        // the whole body from the overall level; each region from its muscle's own level
+        const lv = Math.max(-1, state.level), all = (lv + 1) / 10
+        const local = {}
+        // past MakeHuman's own maximum at the top levels: a statue is more than an athlete
+        for (const [slug, r] of Object.entries(state.map || {})) local[slug] = (tierIndex(r.tier.id) + 1) / 10 * 1.6
+        const pos = shape(human, { muscle: 0.1 + all * 1.5, lean: Math.min(1, all * 0.95), local })
+        // carved abs follow the abs' own level, never less than the body's overall
+        definition.value = Math.max(all, state.map?.abs ? (tierIndex(state.map.abs.tier.id) + 1) / 10 : 0) * 1.2
+        const g = body.geometry
+        g.getAttribute('position').array.set(pos); g.getAttribute('position').needsUpdate = true
+        g.computeVertexNormals(); g.computeBoundingSphere()
         const marble = state.skin === 'olympian'
-        sculpt(body, states, { marble: false, tint: ['none', 'iron', 'bronze', 'silver', 'gold'].includes(state.skin) })
-        nearestOf = makeBody(states).nearest
+        const tint = ['none', 'iron', 'bronze', 'silver', 'gold'].includes(state.skin)
+        const col = g.getAttribute('color'), c = col.array
+        for (let v = 0; v < human.nv; v++) {
+          let r = 1, gg = 1, b = 1
+          const m = tint && regionOf(v, pos[v * 3 + 2]), st = m && state.map?.[m]
+          if (st) { const t = TINT[st.tier.id]; r = 0.72 + 0.28 * t[0]; gg = 0.72 + 0.28 * t[1]; b = 0.72 + 0.28 * t[2] }
+          c[v * 3] = r; c[v * 3 + 1] = gg; c[v * 3 + 2] = b
+        }
+        col.needsUpdate = true
         twinkle.visible = state.level >= 6 && !marble
         glint.forEach(l => { l.intensity = state.level >= 6 && !marble ? 6 : 0 })
       },

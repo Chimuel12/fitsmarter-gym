@@ -1539,6 +1539,7 @@ function legalSheet() {
     <p>FitSmarter is free software under the GNU AGPL v3, based on openGym. <a href="https://github.com/Chimuel12/fitsmarter-gym" target="_blank" rel="noopener">Source code</a></p>
     <p>Exercise media © Aliaksandr Makatserchyk, <a href="https://gymvisual.com/" target="_blank" rel="noopener">Gym visual</a>, gymvisual.com.
       Media licensed for use in openGym only; see <a href="https://github.com/Chimuel12/fitsmarter-gym/blob/main/NOTICE.md" target="_blank" rel="noopener">NOTICE.md</a></p>
+    <p>3D body: MakeHuman base mesh and targets, CC0 1.0, <a href="https://github.com/makehumancommunity/makehuman" target="_blank" rel="noopener">makehumancommunity/makehuman</a>.</p>
   </div>)
 }
 
