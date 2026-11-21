@@ -1,9 +1,10 @@
 // FitSmarter body hub: every muscle in the tier of its best exercise, growing with the tier,
 // plus the levels explainer and how to log weights. Part of this AGPL fork.
+import Media from '../components/Media.jsx'
 import { loadKindFor, baseWeightFor } from '../lib/plates.js'
 import { aboutYouSheet } from '../components/StrengthLevel.jsx'
 import { bwSheet } from '../sheets.jsx'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore.js'
 import { useUI } from '../store/useUI.js'
@@ -70,6 +71,66 @@ function Body({ view, map, onMuscle, skin = 'none', level = -1, moved = {} }) {
           onClick={() => onMuscle(slug)}><title>{t(MUSCLE_NAME[slug])}</title></path>
       }))}
     </svg>
+  </div>
+}
+
+/* The body on a turntable: drag sideways to turn it (it keeps spinning a little and settles on
+   the front or the back), the button turns it round, and it sways gently while left alone.
+   A drag never counts as a tap on a muscle. */
+function Turntable({ front, back }) {
+  const [deg, setDeg] = useState(0)
+  const [held, setHeld] = useState(false)
+  const st = useRef({ x: 0, y: 0, d: 0, v: 0, t: 0, moved: false, raf: 0, id: null })
+  const settle = (from, v) => {
+    cancelAnimationFrame(st.current.raf)
+    let d = from, vel = v
+    const step = () => {
+      vel *= 0.93; d += vel
+      if (Math.abs(vel) < 0.4) {
+        const target = Math.round(d / 180) * 180, start = d, t0 = performance.now()
+        const ease = now => { const k = Math.min(1, (now - t0) / 380), e = 1 - (1 - k) ** 3; setDeg(start + (target - start) * e); if (k < 1) st.current.raf = requestAnimationFrame(ease) }
+        st.current.raf = requestAnimationFrame(ease); return
+      }
+      setDeg(d); st.current.raf = requestAnimationFrame(step)
+    }
+    st.current.raf = requestAnimationFrame(step)
+  }
+  useEffect(() => () => cancelAnimationFrame(st.current.raf), [])
+  const down = e => {
+    cancelAnimationFrame(st.current.raf)
+    Object.assign(st.current, { x: e.clientX, y: e.clientY, d: deg, v: 0, t: performance.now(), moved: false, id: e.pointerId })
+    setHeld(true)
+  }
+  const move = e => {
+    const s = st.current
+    if (s.id !== e.pointerId) return
+    const dx = e.clientX - s.x
+    if (!s.moved && Math.abs(dx) > 6 && Math.abs(dx) > Math.abs(e.clientY - s.y)) { s.moved = true; e.currentTarget.setPointerCapture?.(e.pointerId) }
+    if (!s.moved) return
+    const now = performance.now(), nd = s.d + dx * 0.7
+    s.v = (nd - deg) / Math.max(16, now - s.t) * 16; s.t = now
+    setDeg(nd)
+  }
+  const up = e => {
+    const s = st.current
+    if (s.id !== e.pointerId) return
+    s.id = null; setHeld(false)
+    if (s.moved) settle(deg, s.v)
+  }
+  // A drag ends with a click on whatever is under the finger: swallowed, so it opens nothing.
+  const click = e => { if (st.current.moved) { e.stopPropagation(); e.preventDefault(); st.current.moved = false } }
+  const turn = () => { cancelAnimationFrame(st.current.raf); const start = deg, target = Math.round(deg / 180) * 180 + 180, t0 = performance.now()
+    const ease = now => { const k = Math.min(1, (now - t0) / 650), e = k < .5 ? 4 * k ** 3 : 1 - (-2 * k + 2) ** 3 / 2; setDeg(start + (target - start) * e); if (k < 1) st.current.raf = requestAnimationFrame(ease) }
+    st.current.raf = requestAnimationFrame(ease) }
+  return <div className="fs-turnwrap">
+    <div className={'fs-turn' + (held ? ' held' : '')} onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up} onClickCapture={click}>
+      <div className="fs-spin" style={{ transform: `rotateY(${deg}deg)` }}>
+        <div className="fs-face front">{front}</div>
+        <div className="fs-face back">{back}</div>
+      </div>
+    </div>
+    <button className="fs-turnbtn" onClick={turn} aria-label={t('Turn the body around')}>↻</button>
+    <div className="fs-turnhint">{t('Drag to turn · tap a muscle')}</div>
   </div>
 }
 
@@ -145,9 +206,18 @@ export function levelsSheet(prof) {
 function muscleSheet(slug, map, prof, nav) {
   const r = map[slug], nx = r && rateOf(r.ex) ? nextTier(r.ex, r.prim ? r.pct : r.pct / 0.6, prof) : null
   const sug = CATALOGUE.filter(e => rateOf(e) && (musclesOf(e)[slug] || 0) >= 0.75).sort((a, b) => Number(isClassicEx(b)) - Number(isClassicEx(a))).slice(0, 6)
-  useUI.getState().openSheet(close => <div className="fs-sheet">
+  useUI.getState().openSheet(close => <MuscleSheet slug={slug} r={r} nx={nx} sug={sug} prof={prof} close={close} nav={nav} />)
+}
+
+// The muscle's card: the exercise's animation on top (the one you trained it with last, or a
+// suggestion; tap another suggestion to see that one), then the numbers.
+function MuscleSheet({ slug, r, nx, sug, prof, close, nav }) {
+  const [shown, setShown] = useState(r?.ex || sug[0]?.id || null)
+  const ex = shown ? exerciseOf(shown) : null
+  return <div className="fs-sheet">
     <GemDefs />
     <h2>{t(MUSCLE_NAME[slug])}</h2>
+    {ex && <div className="fs-exanim"><Media ex={ex} /><small>{exerciseNameFor(ex)}</small></div>}
     {r ? <>
       <div className="fs-mhead"><Gem tier={r.tier} size={56} /><div><b>{r.tier.n}</b><span>{t('Top {0}% of gym-goers like you', topTxt(r.pct))}</span></div></div>
       <div className="fs-kv"><span>{t('Latest')} · {dayText(r.at)}</span><b>{nameOf(r.ex)} · {setText(r.ex, r.s, prof.unit)} <Trend r={r} /></b></div>
@@ -161,9 +231,10 @@ function muscleSheet(slug, map, prof, nav) {
       <p className="fs-small fs-muted">{t('Levels and muscle size follow your most recent session, not your all-time best.')}</p>
       {nx && <p className="fs-next"><Gem tier={nx.tier} size={18} /> {t('Next: {0} at {1} × 10 on {2}', nx.tier.n, isRepsRated(r.ex) ? t('{0} reps', Math.ceil(nx.value)) : fmtW(nx.value, prof.unit), nameOf(r.ex))}</p>}
     </> : <p className="fs-muted">{t('Not trained yet. Log one of these to light it up:')}</p>}
-    <div className="fs-sug">{sug.map(e => <div key={e.id}>{exerciseNameFor(e)}</div>)}</div>
+    <div className="fs-sug">{[...(r ? [exerciseOf(r.ex)] : []), ...sug.filter(e => e.id !== r?.ex)].filter(Boolean).map(e =>
+      <button key={e.id} className={e.id === shown ? 'on' : ''} onClick={() => setShown(e.id)}>{exerciseNameFor(e)}</button>)}</div>
     <button className="btn fs-full" onClick={() => { close(); nav('/library') }}>{t('Browse exercises')}</button>
-  </div>)
+  </div>
 }
 
 export default function Hub() {
@@ -218,7 +289,8 @@ export default function Hub() {
         {level >= 7 && <div className="fs-particles" aria-hidden="true">{Array.from({ length: 14 }, (_, i) => <i key={i} style={{ '--i': i }} />)}</div>}
         <div className="fs-call tl">{ov ? <Gem tier={ov.tier} size={34} /> : null}<b>{t('Overall')}</b><small>{ov ? `${ov.tier.n} · ${t('top {0}%', topTxt(ov.pct))}` : t('No lifts yet')}</small></div>
         <div className="fs-call tr"><b>{t('Train next')}</b><small>{ov ? t(MUSCLE_NAME[ov.weakest]) : t('Anything')}</small></div>
-        {g ? <div className="fs-bodies"><Body view={g.front} map={map} onMuscle={onMuscle} skin={skin} level={level} moved={moved} /><Body view={g.back} map={map} onMuscle={onMuscle} skin={skin} level={level} moved={moved} /></div> : <div className="fs-bodies ph" />}
+        {g ? <Turntable front={<Body view={g.front} map={map} onMuscle={onMuscle} skin={skin} level={level} moved={moved} />}
+          back={<Body view={g.back} map={map} onMuscle={onMuscle} skin={skin} level={level} moved={moved} />} /> : <div className="fs-bodies ph" />}
       </div>
       <button className="fs-nextskin" onClick={() => skinsSheet(level)}>
         <span className="fs-swatch" style={{ background: `linear-gradient(135deg, ${SKINS[upcoming ? upcoming.id : skin].stops.join(', ')})` }} />
@@ -226,11 +298,7 @@ export default function Hub() {
           : <><b>{t('Every skin unlocked')}</b><small>{t('You are Symmetric. Keep it.')}</small></>}</span>
         <i>›</i>
       </button>
-      <div className="fs-list">{trained.length ? trained.map(([slug, r]) => <button key={slug} className="fs-row" onClick={() => onMuscle(slug)}>
-        <Gem tier={r.tier} size={24} /><div><b>{t(MUSCLE_NAME[slug])}</b><small>{nameOf(r.ex)} · {setText(r.ex, r.s, prof.unit)} <Trend r={r} />{r.prim ? '' : ` (${t('assisting')})`}</small>
-          {r.next && <small className="fs-nextline">{t('Next: {0}', nextText(r.ex, r.next, prof.unit))}</small>}</div>
-        <span>{r.tier.n}<small>{t('Top {0}%', topTxt(r.pct))}</small></span></button>)
-        : <p className="fs-empty">{t('Log weights and reps: your muscles light up and grow. Tap a gem for the levels.')}</p>}</div>
+      {!trained.length && <p className="fs-empty">{t('Log weights and reps: your muscles light up and grow. Tap a gem for the levels.')}</p>}
     </div>
     {missing && <div className="card fs-prof">
       <h3>{t('For accurate levels')}</h3>

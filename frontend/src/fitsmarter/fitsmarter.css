@@ -175,3 +175,25 @@
 .fs-delta small{color:#8a93a3;font-size:11px;text-align:center}
 @keyframes fs-drop{from{transform:translate(-50%,-14px);opacity:0}}
 @media (prefers-reduced-motion:reduce){.fs-body .fs-mus.anim-up,.fs-body .fs-mus.anim-down,.fs-delta{animation:none}}
+
+/* Body: one figure on a turntable (drag to turn) */
+.fs-turnwrap{position:relative;z-index:1}
+.fs-turn{width:min(64%,300px);margin:0 auto;perspective:1100px;touch-action:pan-y;cursor:grab;user-select:none;-webkit-user-select:none}
+.fs-turn.held{cursor:grabbing}
+.fs-spin{position:relative;transform-style:preserve-3d;will-change:transform}
+.fs-turn:not(.held) .fs-spin{animation:none}
+.fs-face{backface-visibility:hidden;-webkit-backface-visibility:hidden}
+.fs-face.back{position:absolute;inset:0;transform:rotateY(180deg)}
+/* a gentle sway while nobody touches it */
+.fs-turnwrap .fs-turn:not(.held) .fs-face{animation:fs-sway 7s ease-in-out infinite}
+@keyframes fs-sway{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
+.fs-face.back{animation-name:fs-sway-back!important}
+@keyframes fs-sway-back{0%,100%{transform:rotateY(180deg) translateY(0)}50%{transform:rotateY(180deg) translateY(-4px)}}
+.fs-turnbtn{position:absolute;right:4%;bottom:34px;width:40px;height:40px;border:0;border-radius:50%;background:rgba(255,255,255,.1);color:#CFE0FF;font-size:20px;cursor:pointer;backdrop-filter:blur(6px)}
+.fs-turnhint{text-align:center;font-size:11px;color:#8a93a3;margin-top:6px}
+@media (prefers-reduced-motion:reduce){.fs-face{animation:none!important}}
+/* the muscle card: the exercise animation, and suggestions you can tap */
+.fs-exanim{margin:4px 0 14px;border-radius:16px;overflow:hidden;background:#fff}
+.fs-exanim small{display:block;padding:8px 12px;background:var(--card,#16191f);color:var(--muted,#8a8f98);font-size:12px;text-transform:capitalize}
+.fs-sug button{text-align:left;background:none;border:0;border-bottom:1px solid var(--line,rgba(127,127,127,.2));padding:10px 0;color:inherit;font:inherit;font-size:14px;cursor:pointer;text-transform:capitalize}
+.fs-sug button.on{color:var(--acc);font-weight:700}
