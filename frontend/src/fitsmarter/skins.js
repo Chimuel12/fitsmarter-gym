@@ -14,6 +14,7 @@ export const SKINS = {
   diamond: { stops: ['#F2FCFF', '#9FDDF7', '#4FA6DE'], unlock: 'Diamond skin with a crystal shine that sweeps across it.' },
   champion: { stops: ['#E5CCFF', '#9C6BFF', '#4B22C7'], unlock: 'Floating particles and a wider V-shape.' },
   symmetric: { stops: ['#7FE0FF', '#7F9CFF', '#C47FFF', '#FF8FD8'], unlock: 'Holographic animated skin and a halo.' },
+  olympian: { stops: ['#FFFFFF', '#EEE8DE', '#C9BFAE'], unlock: 'White marble, like a Greek statue, at its most muscular. The best there is.' },
 }
 export const skinOf = ov => (ov ? ov.tier.id : 'none')
 export const skinLevel = ov => (ov ? tierIndex(ov.tier.id) : -1)
@@ -21,7 +22,7 @@ export const skinLevel = ov => (ov ? tierIndex(ov.tier.id) : -1)
 export function skinClasses(level) {
   return [
     level >= 1 && 'fx-def', level >= 2 && 'fx-metal', level >= 3 && 'fx-aura', level >= 4 && 'fx-pulse',
-    level >= 5 && 'fx-glow', level >= 6 && 'fx-shine', level >= 7 && 'fx-particles', level >= 8 && 'fx-holo',
+    level >= 5 && 'fx-glow', level >= 6 && 'fx-shine', level >= 7 && 'fx-particles', level === 8 && 'fx-holo', level >= 9 && 'fx-marble',
   ].filter(Boolean).join(' ')
 }
 /** Bigger steps than before: 78 % untrained, 84 % at Iron, +6 % a level, 132 % at Symmetric. */

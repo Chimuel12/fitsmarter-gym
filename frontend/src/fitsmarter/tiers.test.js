@@ -55,7 +55,7 @@ describe('logged sets', () => {
     const p = profileOf({ unit: 'lb', sex: 'female', birthYear: 2000, bodyweight: [{ d: '2026-01-01', w: 150 }, { d: '2026-02-01', w: 140 }] }, { height: 170 })
     expect(p).toMatchObject({ sex: 'f', birthYear: 2000, height: 170 })
     expect(p.weight).toBeCloseTo(63.5, 1)
-    expect(TIERS).toHaveLength(9)
+    expect(TIERS).toHaveLength(10)
   })
 })
 

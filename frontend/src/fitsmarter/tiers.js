@@ -23,6 +23,8 @@ export const TIERS = [
   { id: 'diamond', n: 'Diamond', top: 20, c: '#BFEFFF', c2: '#4FB3E8' },
   { id: 'champion', n: 'Champion', top: 10, c: '#C9A6FF', c2: '#7B4DFF' },
   { id: 'symmetric', n: 'Symmetric', top: 5, c: '#7FB2FF', c2: '#2F5BFF' },
+  // the best there is: a Greek statue in white marble
+  { id: 'olympian', n: 'Olympian', top: 1, c: '#FFFFFF', c2: '#C9BFAE' },
 ]
 export const TIER_TEXT = {
   iron: 'Just starting. Every lifter begins here.',
@@ -34,6 +36,7 @@ export const TIER_TEXT = {
   diamond: 'Top 20%. Advanced lifter; people notice.',
   champion: 'Top 10%. Years of hard, smart training.',
   symmetric: 'Top 5%. Elite strength for your size, age and sex.',
+  olympian: 'Top 1%. A Greek statue: strength very few ever reach.',
 }
 export const tierFor = pct => [...TIERS].reverse().find(t => 100 - pct <= t.top + 0.05) || TIERS[0]
 export const tierIndex = id => Math.max(0, TIERS.findIndex(t => t.id === id))

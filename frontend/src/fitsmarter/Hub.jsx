@@ -41,6 +41,7 @@ const SHAPES = {
   iron: 'M12 2 L21 6 L21 14 Q21 20 12 23 Q3 20 3 14 L3 6 Z', bronze: 'M12 2 L21 6 L21 14 Q21 20 12 23 Q3 20 3 14 L3 6 Z',
   silver: 'M12 1.5 L22.5 12 L12 22.5 L1.5 12 Z', gold: 'M12 1.5 L22.5 9 L18.5 22 L5.5 22 L1.5 9 Z', ruby: 'M12 1.5 L20 5 L22.5 13 L17 21.5 L7 21.5 L1.5 13 L4 5 Z',
   emerald: 'M7 1.5 L17 1.5 L22.5 7 L22.5 17 L17 22.5 L7 22.5 L1.5 17 L1.5 7 Z', diamond: 'M5 4 L19 4 L23 9 L12 22.5 L1 9 Z', champion: 'M2 6 L7 10 L12 2 L17 10 L22 6 L20 21 L4 21 Z',
+  olympian: 'M12 1.5 L22.5 7 L1.5 7 Z M2.5 8.2 H21.5 V10 H2.5 Z M4 11 H7 V19 H4 Z M10.5 11 H13.5 V19 H10.5 Z M17 11 H20 V19 H17 Z M2 20 H22 V22.5 H2 Z',
 }
 export function Gem({ tier, size = 24 }) {
   const spark = <path d="M12 8 l1 2.6 2.6 1 -2.6 1 -1 2.6 -1 -2.6 -2.6 -1 2.6 -1z" fill="#fff" opacity=".85" />
@@ -310,7 +311,7 @@ export default function Hub() {
     <div className="fs-hub">
       <GemDefs />
       <div className="fs-tiers">{TIERS.slice(1).map(tr => <button key={tr.id} className={ov?.tier.id === tr.id ? 'on' : ''} onClick={() => levelsSheet(prof)} aria-label={tr.n}>
-        <Gem tier={tr} size={26} /><small>{t('{0}%', tr.top)}</small></button>)}</div>
+        <Gem tier={tr} size={24} /><small>{t('{0}%', tr.top)}</small></button>)}</div>
       <div className={'fs-stage skin-' + skin + ' ' + skinClasses(level)} style={{ '--skin-a': SKINS[skin].stops[0], '--skin-b': SKINS[skin].stops.at(-1) }}>
         {moves.length > 0 && <div className="fs-delta" role="status" onClick={() => setMoves([])}>{[...moves.filter(x => x.dir === 'up').slice(0, 3), ...moves.filter(x => x.dir === 'down').slice(0, 2)].map(x => <div key={x.slug} className={x.dir}>
           <i>{x.dir === 'up' ? '▲' : '▼'}</i><b>{t(MUSCLE_NAME[x.slug])}</b><span>{x.from ? x.from.n : t('Untrained')} → {x.to ? x.to.n : t('Untrained')}</span></div>)}
@@ -326,7 +327,7 @@ export default function Hub() {
       <button className="fs-nextskin" onClick={() => skinsSheet(level)}>
         <span className="fs-swatch" style={{ background: `linear-gradient(135deg, ${SKINS[upcoming ? upcoming.id : skin].stops.join(', ')})` }} />
         <span>{upcoming ? <><b>{t('Next skin: {0}', upcoming.n)}</b><small>{t('{0} Reach overall top {1}%.', t(SKINS[upcoming.id].unlock), upcoming.top)}</small></>
-          : <><b>{t('Every skin unlocked')}</b><small>{t('You are Symmetric. Keep it.')}</small></>}</span>
+          : <><b>{t('Every skin unlocked')}</b><small>{t('You are a Greek statue. Keep it.')}</small></>}</span>
         <i>›</i>
       </button>
       {!trained.length && <p className="fs-empty">{t('Log weights and reps: your muscles light up and grow. Tap a gem for the levels.')}</p>}

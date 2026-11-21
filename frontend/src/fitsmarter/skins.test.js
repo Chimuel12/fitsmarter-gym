@@ -8,6 +8,8 @@ describe('skins', () => {
     expect(skinClasses(-1)).toBe('')
     expect(skinClasses(3)).toBe('fx-def fx-metal fx-aura')
     expect(skinClasses(8).split(' ')).toHaveLength(8)
+    expect(skinClasses(9)).toContain('fx-marble')
+    expect(skinClasses(9)).not.toContain('fx-holo')
   })
   it('grows a muscle 6 % a level, more on the back and shoulders from Champion', () => {
     const r = id => ({ tier: TIERS.find(x => x.id === id) })
@@ -18,6 +20,7 @@ describe('skins', () => {
   })
   it('names the next skin, none after Symmetric', () => {
     expect(nextSkin(-1).id).toBe('iron')
-    expect(nextSkin(8)).toBe(null)
+    expect(nextSkin(8).id).toBe('olympian')
+    expect(nextSkin(9)).toBe(null)
   })
 })
