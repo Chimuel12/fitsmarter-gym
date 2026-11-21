@@ -31,7 +31,10 @@ export const REOPEN_MS = 24 * 3600 * 1000
 
 export const ASK_CHOICES = Object.freeze([30, 45, 60, 90, 0])
 export const GRACE_CHOICES = Object.freeze([2, 5, 10])
-export const FORGOTTEN_DEFAULTS = Object.freeze({ askMin: 45, graceMin: 5, leaveGym: null })
+// FitSmarter (VITE_STANDALONE): also asks 2 hours after the start, however busy the workout looks,
+// so a session is saved the same day (`maxMin`, 0 = no limit; a "Keep going" gives 30 more minutes).
+export const MAX_DEFAULT = import.meta.env?.VITE_STANDALONE === '1' ? 120 : 0
+export const FORGOTTEN_DEFAULTS = Object.freeze({ askMin: 45, graceMin: 5, leaveGym: null, maxMin: MAX_DEFAULT })
 // A rest nobody set: the app's own default.
 const DEFAULT_REST_SEC = 90
 const MIN = 60 * 1000
@@ -57,6 +60,7 @@ export function readForgottenPrefs(storage = globalThis.localStorage) {
     askMin: ASK_CHOICES.includes(v.askMin) ? v.askMin : FORGOTTEN_DEFAULTS.askMin,
     graceMin: GRACE_CHOICES.includes(v.graceMin) ? v.graceMin : FORGOTTEN_DEFAULTS.graceMin,
     leaveGym: typeof v.leaveGym === 'boolean' ? v.leaveGym : null,
+    maxMin: Number.isFinite(v.maxMin) && v.maxMin >= 0 ? v.maxMin : FORGOTTEN_DEFAULTS.maxMin,
   }
 }
 
@@ -143,8 +147,11 @@ export function decideForgotten({ A, now = Date.now(), prefs = FORGOTTEN_DEFAULT
     return now >= deadline ? end('left') : { state: 'left', reason: 'left', deadline }
   }
   const askMin = ASK_CHOICES.includes(prefs?.askMin) ? prefs.askMin : FORGOTTEN_DEFAULTS.askMin
-  if (!askMin) return { state: 'active' }
-  const askAt = since + askMin * MIN
+  const maxMin = Number.isFinite(prefs?.maxMin) ? prefs.maxMin : FORGOTTEN_DEFAULTS.maxMin
+  if (!askMin && !maxMin) return { state: 'active' }
+  // The cap: `maxMin` after the start, or 30 minutes after a "Keep going", whichever is later.
+  const capAt = maxMin ? Math.max(num(A?.start) + maxMin * MIN, num(snoozeAt) + 30 * MIN) : Infinity
+  const askAt = Math.min(askMin ? since + askMin * MIN : Infinity, capAt)
   if (now < askAt) return { state: 'active', askAt }
   // Asked before the last thing that counts is a question already answered.
   const asked = num(askedAt) >= askAt ? num(askedAt) : 0

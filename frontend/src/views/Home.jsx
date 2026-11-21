@@ -1,5 +1,6 @@
 import TrainerNotice from '../components/TrainerNotice.jsx'
 import { STANDALONE } from '../lib/demo.js'
+import ReminderCard from '../fitsmarter/ReminderCard.jsx'
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore.js'
@@ -222,6 +223,7 @@ export default function Home() {
     </div>
 
     {/* Monday: Your week; the 1st: Your month (lib/recap.js). Off in Settings → Look & Home. */}
+    <ReminderCard />
     <RecapHomeCard S={S} />
 
     {/* Christmas (lib/seasonal.js): the advent calendar's card, 1 to 24 December, from the theme's chunk. */}

@@ -157,8 +157,8 @@ describe('forgotten workouts: choices and state', () => {
   it('defaults, and only known choices', () => {
     const st = mem()
     expect(readForgottenPrefs(st)).toEqual({ ...FORGOTTEN_DEFAULTS })
-    expect(writeForgottenPrefs({ askMin: 90, graceMin: 10, leaveGym: false }, st)).toEqual({ askMin: 90, graceMin: 10, leaveGym: false })
-    expect(writeForgottenPrefs({ askMin: 13, graceMin: 99 }, st)).toEqual({ askMin: 45, graceMin: 5, leaveGym: false })
+    expect(writeForgottenPrefs({ askMin: 90, graceMin: 10, leaveGym: false }, st)).toEqual({ askMin: 90, graceMin: 10, leaveGym: false, maxMin: 0 })
+    expect(writeForgottenPrefs({ askMin: 13, graceMin: 99 }, st)).toEqual({ askMin: 45, graceMin: 5, leaveGym: false, maxMin: 0 })
     expect(writeForgottenPrefs({ askMin: 0 }, st).askMin).toBe(0)
     expect(forgottenForWatch({ askMin: 30, graceMin: 2, leaveGym: null }, true)).toEqual({ askMin: 30, graceMin: 2, leaveGym: true })
   })

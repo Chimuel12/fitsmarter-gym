@@ -394,6 +394,8 @@ function Shell() {
   useEffect(() => { if (ready || authed) hideBoot() }, [ready, authed])
   // FitSmarter: Google Drive sync (fitsmarter/drive.js), once the profile is loaded.
   useEffect(() => { if (STANDALONE && ready) import('./fitsmarter/drive.js').then(m => m.startDriveSync()).catch(() => {}) }, [ready])
+  // FitSmarter: after a workout, a note with the muscles that moved up or down (fitsmarter/progress.js).
+  useEffect(() => { if (STANDALONE && ready) import('./fitsmarter/progress.js').then(m => m.watchFinishes({ useStore, useUI, navigate: p => { location.hash = '#' + p }, t })).catch(() => {}) }, [ready])
   if (!ready && !authed) return (
     <div id="app">
       <div style={{ paddingTop: '44vh', display: 'flex', justifyContent: 'center' }}>

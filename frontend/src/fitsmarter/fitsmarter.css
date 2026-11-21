@@ -155,3 +155,23 @@
 .fs-unlock p{color:var(--muted,#8a8f98);margin-bottom:16px}
 .fs-unlock-orb{display:flex;align-items:center;justify-content:center;width:150px;height:150px;margin:0 auto;border-radius:50%;background:radial-gradient(closest-side,color-mix(in srgb,var(--skin-a) 60%,transparent),transparent);animation:fs-pop .7s cubic-bezier(.2,1.6,.4,1)}
 @keyframes fs-pop{from{transform:scale(.3);opacity:0}}
+
+/* Home: the reminder card */
+.fs-remind{display:flex;flex-direction:column;gap:10px}
+.fs-remind-h{display:flex;gap:8px;align-items:center;font-size:17px}
+.fs-remind-t{display:flex;justify-content:space-between;align-items:center;font-size:15px}
+.fs-remind-t input{background:var(--fill-3,#2a2f38);border:0;border-radius:10px;padding:8px 10px;color:inherit;font:inherit}
+
+/* Body: what changed since you last looked */
+.fs-body .fs-mus.anim-up{animation:fs-up 1.4s ease-in-out 3}
+.fs-body .fs-mus.anim-down{animation:fs-down 1.4s ease-in-out 3}
+@keyframes fs-up{40%{filter:drop-shadow(0 0 10px #30d158) drop-shadow(0 0 3px #fff) brightness(1.35)}}
+@keyframes fs-down{40%{filter:drop-shadow(0 0 10px #ff453a) brightness(.75) saturate(.6)}}
+.fs-delta{position:absolute;z-index:3;left:50%;top:8px;transform:translateX(-50%);width:min(92%,320px);display:flex;flex-direction:column;gap:4px;padding:10px 12px;border-radius:16px;background:rgba(12,16,28,.88);backdrop-filter:blur(10px);box-shadow:0 10px 30px #0008;animation:fs-drop .5s cubic-bezier(.2,1.4,.4,1);cursor:pointer}
+.fs-delta div{display:flex;align-items:center;gap:8px;font-size:13px}
+.fs-delta i{font-style:normal;font-weight:800;width:14px}
+.fs-delta .up i{color:#30d158}.fs-delta .down i{color:#ff453a}
+.fs-delta b{flex:1}.fs-delta span{color:#C9D4EA;font-size:12px}
+.fs-delta small{color:#8a93a3;font-size:11px;text-align:center}
+@keyframes fs-drop{from{transform:translate(-50%,-14px);opacity:0}}
+@media (prefers-reduced-motion:reduce){.fs-body .fs-mus.anim-up,.fs-body .fs-mus.anim-down,.fs-delta{animation:none}}

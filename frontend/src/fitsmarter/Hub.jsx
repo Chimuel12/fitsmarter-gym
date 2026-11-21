@@ -12,6 +12,7 @@ import { CATALOGUE, exerciseOf, isClassicEx } from '../lib/exercises.js'
 import { exerciseNameFor } from '../lib/i18n-core.js'
 import { t } from '../lib/i18n.js'
 import { TIERS, TIER_TEXT, tierFor, tierIndex, topTxt, profileOf, muscleTiers, overall, nextTier, weightAtTop, rateOf, isRepsRated } from './tiers.js'
+import { changesSince, markSeen } from './progress.js'
 import { SKINS, skinOf, skinLevel, skinClasses, muscleScale, nextSkin } from './skins.js'
 import './fitsmarter.css'
 
@@ -55,7 +56,7 @@ export function GemDefs() {
 }
 
 // The skin follows your overall level (skins.js); each muscle keeps its own colour and size.
-function Body({ view, map, onMuscle, skin = 'none', level = -1 }) {
+function Body({ view, map, onMuscle, skin = 'none', level = -1, moved = {} }) {
   const top = level >= 0 ? TIERS[level] : null
   return <div className="fs-figure">
     {level >= 8 && <span className="fs-halo" aria-hidden="true" />}
@@ -64,7 +65,7 @@ function Body({ view, map, onMuscle, skin = 'none', level = -1 }) {
         style={slug === 'hair' ? undefined : { fill: `url(#fsskin-${skin})` }} />))}
       {MUSCLES.map(slug => (view.p[slug] || []).map((d, i) => {
         const r = map[slug], strong = !!r && !!top && tierIndex(r.tier.id) >= level
-        return <path key={slug + i} d={d} className={'fs-mus' + (r ? ' on' : '') + (strong ? ' strong' : '')}
+        return <path key={slug + i} d={d} className={'fs-mus' + (r ? ' on' : '') + (strong ? ' strong' : '') + (moved[slug] ? ' anim-' + moved[slug] : '')}
           style={{ transform: `scale(${muscleScale(r, slug, level).toFixed(3)})`, fill: r ? `url(#fsg-${r.tier.id})` : undefined }}
           onClick={() => onMuscle(slug)}><title>{t(MUSCLE_NAME[slug])}</title></path>
       }))}
@@ -190,6 +191,18 @@ export default function Hub() {
     if (level > seen && level >= 0) unlockSheet(TIERS[level])
     if (level !== seen) try { localStorage.setItem(SEEN_KEY, String(level)) } catch { /* private mode */ }
   }, [level])
+  // Since you last looked: muscles that went up glow green, down glow red, and a note says which.
+  const [moves, setMoves] = useState([])
+  useEffect(() => {
+    if (forced) return
+    const c = changesSince(map)
+    markSeen(map)
+    if (!c.length) return
+    setMoves(c)
+    const tm = setTimeout(() => setMoves([]), 7000)
+    return () => clearTimeout(tm)
+  }, [JSON.stringify(Object.entries(map).map(([m, r]) => [m, r.tier.id]))])
+  const moved = Object.fromEntries(moves.map(x => [x.slug, x.dir]))
   return <>
     <div className="hdr"><div style={{ flex: 1 }}><h1>{t('Body')}</h1><div className="sub">{t('Your strength level, muscle by muscle')}</div></div>
       <button className="btn fs-lvlbtn" onClick={() => nav('/stats')}>{t('Stats')}</button></div>
@@ -198,11 +211,14 @@ export default function Hub() {
       <div className="fs-tiers">{TIERS.slice(1).map(tr => <button key={tr.id} className={ov?.tier.id === tr.id ? 'on' : ''} onClick={() => levelsSheet(prof)} aria-label={tr.n}>
         <Gem tier={tr} size={26} /><small>{t('{0}%', tr.top)}</small></button>)}</div>
       <div className={'fs-stage skin-' + skin + ' ' + skinClasses(level)} style={{ '--skin-a': SKINS[skin].stops[0], '--skin-b': SKINS[skin].stops.at(-1) }}>
+        {moves.length > 0 && <div className="fs-delta" role="status" onClick={() => setMoves([])}>{[...moves.filter(x => x.dir === 'up').slice(0, 3), ...moves.filter(x => x.dir === 'down').slice(0, 2)].map(x => <div key={x.slug} className={x.dir}>
+          <i>{x.dir === 'up' ? '▲' : '▼'}</i><b>{t(MUSCLE_NAME[x.slug])}</b><span>{x.from ? x.from.n : t('Untrained')} → {x.to ? x.to.n : t('Untrained')}</span></div>)}
+          {moves.length > Math.min(3, moves.filter(x => x.dir === 'up').length) + Math.min(2, moves.filter(x => x.dir === 'down').length) && <small>{t('+{0} more', moves.length - Math.min(3, moves.filter(x => x.dir === 'up').length) - Math.min(2, moves.filter(x => x.dir === 'down').length))}</small>}</div>}
         {level >= 3 && <div className="fs-aura" aria-hidden="true" />}
         {level >= 7 && <div className="fs-particles" aria-hidden="true">{Array.from({ length: 14 }, (_, i) => <i key={i} style={{ '--i': i }} />)}</div>}
         <div className="fs-call tl">{ov ? <Gem tier={ov.tier} size={34} /> : null}<b>{t('Overall')}</b><small>{ov ? `${ov.tier.n} · ${t('top {0}%', topTxt(ov.pct))}` : t('No lifts yet')}</small></div>
         <div className="fs-call tr"><b>{t('Train next')}</b><small>{ov ? t(MUSCLE_NAME[ov.weakest]) : t('Anything')}</small></div>
-        {g ? <div className="fs-bodies"><Body view={g.front} map={map} onMuscle={onMuscle} skin={skin} level={level} /><Body view={g.back} map={map} onMuscle={onMuscle} skin={skin} level={level} /></div> : <div className="fs-bodies ph" />}
+        {g ? <div className="fs-bodies"><Body view={g.front} map={map} onMuscle={onMuscle} skin={skin} level={level} moved={moved} /><Body view={g.back} map={map} onMuscle={onMuscle} skin={skin} level={level} moved={moved} /></div> : <div className="fs-bodies ph" />}
       </div>
       <button className="fs-nextskin" onClick={() => skinsSheet(level)}>
         <span className="fs-swatch" style={{ background: `linear-gradient(135deg, ${SKINS[upcoming ? upcoming.id : skin].stops.join(', ')})` }} />
