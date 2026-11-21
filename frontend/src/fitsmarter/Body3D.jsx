@@ -149,16 +149,20 @@ const Body3D = forwardRef(function Body3D({ map, skin = 'none', level = -1, onMu
         // the whole body from the overall level; each region from its muscle's own level
         const lv = Math.max(-1, state.level), all = (lv + 1) / 10
         const local = {}
-        // past MakeHuman's own maximum at the top levels: a statue is more than an athlete
-        for (const [slug, r] of Object.entries(state.map || {})) local[slug] = (tierIndex(r.tier.id) + 1) / 10 * 1.6
-        const pos = shape(human, { muscle: 0.1 + all * 1.5, lean: Math.min(1, all * 0.95), local })
+        // each part grows with its own muscle's level only (past MakeHuman's maximum at the top);
+        // the whole body moves only a little, with the average of all of them
+        for (const [slug, r] of Object.entries(state.map || {})) local[slug] = (tierIndex(r.tier.id) + 1) / 10 * 1.5
+        const MAJOR = ['chest', 'lats', 'side-delts', 'biceps', 'triceps', 'forearm', 'quadriceps', 'hamstring', 'gluteal', 'calves', 'abs']
+        const avg = MAJOR.reduce((a, m) => a + (local[m] || 0) / 1.5, 0) / MAJOR.length
+        const absLv = state.map?.abs ? (tierIndex(state.map.abs.tier.id) + 1) / 10 : 0
+        const pos = shape(human, { muscle: 0.15 + avg * 0.7, lean: Math.min(1, 0.15 + absLv * 0.85), local })
         // carved abs follow the abs' own level, never less than the body's overall
-        definition.value = Math.max(all, state.map?.abs ? (tierIndex(state.map.abs.tier.id) + 1) / 10 : 0) * 1.2
+        definition.value = absLv * 1.2
         const g = body.geometry
         g.getAttribute('position').array.set(pos); g.getAttribute('position').needsUpdate = true
         g.computeVertexNormals(); g.computeBoundingSphere()
         const marble = state.skin === 'olympian'
-        const tint = ['none', 'iron', 'bronze', 'silver', 'gold'].includes(state.skin)
+        const tint = false   // a per-muscle colour made patches at the region edges; the level's material says it
         const col = g.getAttribute('color'), c = col.array
         for (let v = 0; v < human.nv; v++) {
           let r = 1, gg = 1, b = 1

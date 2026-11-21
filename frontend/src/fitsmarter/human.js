@@ -71,22 +71,42 @@ export function shape(h, { muscle = 0.3, lean = 0.3, local = {} }) {
   for (const [slug, v] of Object.entries(local)) for (const t of REGION[slug] || []) w[t] = Math.max(w[t] || 0, v)
   for (const [t, v] of Object.entries(w)) add(t, v)
   // the V: broad back and shoulders together
-  add('torso-vshape-incr', Math.min(1, ((local.lats || 0) + (local['side-delts'] || 0)) / 2) * 0.8)
+  add('torso-vshape-incr', Math.min(1, ((local.lats || 0) + (local['side-delts'] || 0)) / 2) * 0.5)
   pose(p)
   return p
 }
 
-/* MakeHuman's body stands in an A-pose. Lower the arms to the sides, like a statue: each arm
-   vertex turns about its shoulder, blended in across the shoulder so the armpit stays smooth. */
-const ARM_DOWN = 0.56   // radians
+/* MakeHuman's body stands in an A-pose (arms about 49° below horizontal). A natural, relaxed
+   stance: each arm turns down about its shoulder joint to hang beside the body, the elbows bend a
+   little forward and the hands rest by the thighs. Like a simple skeleton: only points near the
+   arm's own axis move, blended in across the shoulder so the deltoid and armpit stay smooth. */
+const SHOULDER = [0.172, 1.372, -0.12], ARM_DIR = [0.655, -0.756]   // from the measured A-pose
+const DROP = 0.6, BEND = 0.32, UPPER = 0.27                      // radians, radians, metres to the elbow
+const ss = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t) }
 function pose(p) {
   for (let i = 0; i < p.length; i += 3) {
-    const x = p[i], y = p[i + 1], ax = Math.abs(x)
-    if (ax < 0.13 || y < 1.08 - (ax - 0.15) * 1.1) continue
-    const w = Math.min(1, Math.max(0, (ax - 0.13) / 0.09)), s = Math.sign(x)
-    const px = s * 0.165, py = 1.395, a = -s * ARM_DOWN * w * w * (3 - 2 * w)
-    const dx = x - px, dy = y - py, c = Math.cos(a), sn = Math.sin(a)
-    p[i] = px + dx * c - dy * sn; p[i + 1] = py + dx * sn + dy * c
+    const s = Math.sign(p[i]) || 1
+    const dx = p[i] - s * SHOULDER[0], dy = p[i + 1] - SHOULDER[1]
+    const t = dx * s * ARM_DIR[0] + dy * ARM_DIR[1]                  // along the arm
+    const px = dx - s * ARM_DIR[0] * t, py = dy - ARM_DIR[1] * t       // away from its axis
+    const perp = Math.hypot(px, py)
+    const lim = 0.095 + 0.09 * ss(0.12, 0.34, t)
+    if (t < -0.04 || perp > lim + 0.03) continue
+    // fades out both up the shoulder and out to the side, so no triangle is torn at the armpit
+    const w = ss(-0.04, 0.07, t) * (1 - ss(lim - 0.03, lim + 0.03, perp))
+    // down about the shoulder (in the body's plane)
+    const a = -s * DROP * w, c = Math.cos(a), sn = Math.sin(a)
+    let x = dx * c - dy * sn, y = dx * sn + dy * c, z = p[i + 2]
+    // the elbow: the forearm and hand swing a little forward
+    const e = ss(UPPER - 0.03, UPPER + 0.04, t)
+    if (e > 0) {
+      const ex = s * ARM_DIR[0] * UPPER, ey = ARM_DIR[1] * UPPER
+      const exr = ex * c - ey * sn, eyr = ex * sn + ey * c         // the elbow, already lowered
+      const b = BEND * e, cb = Math.cos(b), sb = Math.sin(b)
+      const ry = y - eyr, rz = z - SHOULDER[2]
+      y = eyr + ry * cb - rz * sb; z = SHOULDER[2] + ry * sb + rz * cb
+    }
+    p[i] = s * SHOULDER[0] + x; p[i + 1] = SHOULDER[1] + y; p[i + 2] = z
   }
 }
 
