@@ -197,3 +197,9 @@
 .fs-exanim small{display:block;padding:8px 12px;background:var(--card,#16191f);color:var(--muted,#8a8f98);font-size:12px;text-transform:capitalize}
 .fs-sug button{text-align:left;background:none;border:0;border-bottom:1px solid var(--line,rgba(127,127,127,.2));padding:10px 0;color:inherit;font:inherit;font-size:14px;cursor:pointer;text-transform:capitalize}
 .fs-sug button.on{color:var(--acc);font-weight:700}
+
+/* Body in 3D: as wide as the screen, most of its height */
+.fs-3d{position:relative;z-index:1;width:100%;height:min(66vh,620px);min-height:360px;touch-action:none;cursor:grab}
+.fs-3d canvas{display:block;width:100%!important;height:100%!important}
+.fs-stage:has(.fs-3d){padding:70px 0 18px}
+.fs-sharebtn{position:absolute;z-index:3;right:4%;bottom:12px;border:0;border-radius:999px;padding:9px 16px;background:rgba(255,255,255,.12);color:#fff;font:inherit;font-weight:700;font-size:14px;backdrop-filter:blur(8px);cursor:pointer}

@@ -1,5 +1,7 @@
 // FitSmarter body hub: every muscle in the tier of its best exercise, growing with the tier,
 // plus the levels explainer and how to log weights. Part of this AGPL fork.
+import { shareImage } from '../lib/share-image.js'
+import Body3D from './Body3D.jsx'
 import Media from '../components/Media.jsx'
 import { loadKindFor, baseWeightFor } from '../lib/plates.js'
 import { aboutYouSheet } from '../components/StrengthLevel.jsx'
@@ -148,13 +150,36 @@ export function skinsSheet(level) {
 }
 
 const SEEN_KEY = 'fs_skin_seen'
-function unlockSheet(tier) {
+/** The picture to share: the body as it is now on a story-sized card, with the level. */
+async function bodyPicture(body, tier) {
+  const W = 1080, H = 1920, c = document.createElement('canvas'); c.width = W; c.height = H
+  const g = c.getContext('2d'), stops = SKINS[tier?.id || 'none'].stops
+  const bg = g.createLinearGradient(0, 0, W, H); bg.addColorStop(0, '#0b1020'); bg.addColorStop(1, '#151b33'); g.fillStyle = bg; g.fillRect(0, 0, W, H)
+  const glow = g.createRadialGradient(W / 2, H * 0.52, 40, W / 2, H * 0.52, 700); glow.addColorStop(0, stops[0] + '88'); glow.addColorStop(1, '#0000'); g.fillStyle = glow; g.fillRect(0, 0, W, H)
+  const shot = body?.snapshot?.()
+  if (shot) { const s = Math.min(980 / shot.width, 1300 / shot.height); const w = shot.width * s, h = shot.height * s; g.drawImage(shot, (W - w) / 2, H * 0.52 - h / 2, w, h) }
+  g.textAlign = 'center'; g.fillStyle = '#fff'
+  g.font = '800 92px -apple-system, Inter, system-ui, sans-serif'; g.fillText(tier ? tier.n : 'FitSmarter', W / 2, 230)
+  g.font = '600 44px -apple-system, Inter, system-ui, sans-serif'; g.fillStyle = '#C9D4EA'
+  g.fillText(tier ? t('Top {0}% of gym-goers', tier.top) : t('My body, level by level'), W / 2, 300)
+  g.font = '800 54px -apple-system, Inter, system-ui, sans-serif'; g.fillStyle = '#4C8DFF'; g.fillText('FitSmarter', W / 2, H - 120)
+  return new Promise(r => c.toBlob(r, 'image/png'))
+}
+async function shareBody(body, tier) {
+  const blob = await bodyPicture(body, tier)
+  const toast = m => { try { useUI.getState().toast(m) } catch { /* */ } }
+  await shareImage(blob, `fitsmarter-${tier?.id || 'body'}.png`, 'FitSmarter', toast)
+}
+
+function unlockSheet(tier, body) {
   useUI.getState().openSheet(close => <div className="fs-sheet fs-unlock" style={{ '--skin-a': SKINS[tier.id].stops[0], '--skin-b': SKINS[tier.id].stops.at(-1) }}>
     <GemDefs />
     <div className="fs-unlock-orb"><Gem tier={tier} size={84} /></div>
     <h2>{t('New skin: {0}', tier.n)}</h2>
     <p>{t(SKINS[tier.id].unlock)}</p>
-    <button className="btn fs-full fs-primary" onClick={close}>{t('Nice!')}</button>
+    <div className="fs-two"><button className="btn fs-primary" onClick={() => shareBody(body, tier)}>{t('Share')}</button>
+      <button className="btn" onClick={close}>{t('Nice!')}</button></div>
+    <p className="fs-small fs-muted">{t('Instagram, WhatsApp or anywhere: a picture of your body at {0}.', tier.n)}</p>
   </div>, { kind: 'center' })
 }
 
@@ -253,13 +278,18 @@ export default function Hub() {
   // #/body?skin=gold previews a skin without changing anything (and without the unlock sheet).
   const preview = new URLSearchParams(location.hash.split('?')[1] || '').get('skin')
   const forced = preview && TIERS.some(x => x.id === preview) ? preview : null
+  const body3d = useRef(null)
   const skin = forced || skinOf(ov), level = forced ? tierIndex(forced) : skinLevel(ov), upcoming = nextSkin(level)
   // A level you reach for the first time shows its new skin once.
   useEffect(() => {
-    if (forced) return
+    if (forced || level < 0) return   // nothing loaded yet, or nothing trained: nothing to compare
     let seen = -1
     try { seen = Number(localStorage.getItem(SEEN_KEY) ?? -1) } catch { /* private mode */ }
-    if (level > seen && level >= 0) unlockSheet(TIERS[level])
+    if (level > seen && level >= 0) {
+      const tier = TIERS[level]
+      // the body's own 3-second moment first (3D), then the card to share it
+      setTimeout(() => Promise.resolve(body3d.current?.celebrate()).then(() => unlockSheet(tier, body3d.current)), 400)
+    }
     if (level !== seen) try { localStorage.setItem(SEEN_KEY, String(level)) } catch { /* private mode */ }
   }, [level])
   // Since you last looked: muscles that went up glow green, down glow red, and a note says which.
@@ -289,8 +319,9 @@ export default function Hub() {
         {level >= 7 && <div className="fs-particles" aria-hidden="true">{Array.from({ length: 14 }, (_, i) => <i key={i} style={{ '--i': i }} />)}</div>}
         <div className="fs-call tl">{ov ? <Gem tier={ov.tier} size={34} /> : null}<b>{t('Overall')}</b><small>{ov ? `${ov.tier.n} · ${t('top {0}%', topTxt(ov.pct))}` : t('No lifts yet')}</small></div>
         <div className="fs-call tr"><b>{t('Train next')}</b><small>{ov ? t(MUSCLE_NAME[ov.weakest]) : t('Anything')}</small></div>
-        {g ? <Turntable front={<Body view={g.front} map={map} onMuscle={onMuscle} skin={skin} level={level} moved={moved} />}
-          back={<Body view={g.back} map={map} onMuscle={onMuscle} skin={skin} level={level} moved={moved} />} /> : <div className="fs-bodies ph" />}
+        {g ? <Body3D ref={body3d} map={forced ? Object.fromEntries(MUSCLES.map(m => [m, { tier: TIERS[level] }])) : map} skin={skin} level={level} onMuscle={onMuscle} fallback={<Turntable front={<Body view={g.front} map={map} onMuscle={onMuscle} skin={skin} level={level} moved={moved} />}
+          back={<Body view={g.back} map={map} onMuscle={onMuscle} skin={skin} level={level} moved={moved} />} />} /> : <div className="fs-bodies ph" />}
+        {g && <button className="fs-sharebtn" onClick={() => shareBody(body3d.current, level >= 0 ? TIERS[level] : null)} aria-label={t('Share')}>{t('Share')}</button>}
       </div>
       <button className="fs-nextskin" onClick={() => skinsSheet(level)}>
         <span className="fs-swatch" style={{ background: `linear-gradient(135deg, ${SKINS[upcoming ? upcoming.id : skin].stops.join(', ')})` }} />
