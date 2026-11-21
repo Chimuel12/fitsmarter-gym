@@ -6,7 +6,7 @@
 .fs-tiers button{background:none;border:0;padding:2px;display:flex;flex-direction:column;align-items:center;gap:3px;opacity:.8;color:inherit;cursor:pointer}
 .fs-tiers button.on{opacity:1;transform:scale(1.15)}
 .fs-tiers small{font-size:9.5px;font-weight:700;color:#AFC0E0}
-.fs-stage{position:relative;padding:44px 0 40px}
+.fs-stage{position:relative;padding:88px 0 40px}
 .fs-bodies{display:grid;grid-template-columns:1fr 1fr;gap:4px}
 .fs-bodies.ph{min-height:320px}
 .fs-body{width:100%;display:block;filter:drop-shadow(0 0 20px rgba(76,141,255,.22))}
@@ -107,3 +107,51 @@
 .fs-overload{display:flex;flex-direction:column;gap:4px;margin:12px 0;padding:12px 14px;border-radius:14px;background:color-mix(in srgb,var(--acc) 14%,transparent)}
 .fs-overload b{color:var(--acc)}
 .fs-sheet .fs-kv{margin:8px 0}
+
+/* ---------- skins: the body evolves with the overall level (skins.js) ---------- */
+.fs-figure{position:relative}
+.fs-body .fs-skin{transition:fill .6s}
+.fs-body .fs-mus{transition:transform .9s cubic-bezier(.2,.8,.2,1),filter .6s}
+.fs-stage{isolation:isolate}
+.fs-stage .fs-bodies{position:relative;z-index:1}
+/* Bronze+: definition lines between muscles */
+.fs-stage.fx-def .fs-body .fs-mus{stroke:rgba(255,255,255,.22);stroke-width:1.2}
+/* Silver+: a metallic sheen on the whole figure */
+.fs-stage.fx-metal .fs-body{filter:drop-shadow(0 0 14px color-mix(in srgb,var(--skin-a) 35%,transparent)) contrast(1.05) saturate(1.1)}
+/* Gold+: aura behind the figure */
+.fs-aura{position:absolute;inset:8% 4% 6%;z-index:0;border-radius:50%;background:radial-gradient(closest-side,color-mix(in srgb,var(--skin-a) 55%,transparent),color-mix(in srgb,var(--skin-b) 25%,transparent) 55%,transparent);filter:blur(18px);opacity:.75}
+/* Ruby+: the aura breathes */
+.fs-stage.fx-pulse .fs-aura{animation:fs-breathe 3.2s ease-in-out infinite}
+@keyframes fs-breathe{50%{opacity:1;transform:scale(1.06)}}
+/* Emerald+: your strongest muscles glow in the skin colour */
+.fs-stage.fx-glow .fs-body .fs-mus.strong{filter:drop-shadow(0 0 6px var(--skin-a)) drop-shadow(0 0 2px #fff8)}
+/* Diamond+: a crystal shine sweeps across */
+.fs-stage.fx-shine .fs-figure{overflow:hidden}
+.fs-stage.fx-shine .fs-figure:after{content:"";position:absolute;inset:-20% -60%;background:linear-gradient(105deg,transparent 40%,rgba(255,255,255,.38) 50%,transparent 60%);mix-blend-mode:overlay;animation:fs-shine 4.5s ease-in-out infinite;pointer-events:none}
+@keyframes fs-shine{0%{transform:translateX(-60%)}60%,100%{transform:translateX(60%)}}
+/* Champion+: floating particles */
+.fs-particles{position:absolute;inset:0;z-index:2;pointer-events:none;overflow:hidden}
+.fs-particles i{position:absolute;bottom:-6px;left:calc(4% + var(--i) * 6.7%);width:5px;height:5px;border-radius:50%;background:var(--skin-a);box-shadow:0 0 8px var(--skin-a);opacity:0;animation:fs-float calc(5s + var(--i) * .37s) linear calc(var(--i) * -.61s) infinite}
+@keyframes fs-float{10%{opacity:.9}100%{transform:translateY(-420px) translateX(calc((var(--i) - 7) * 3px));opacity:0}}
+/* Symmetric: holographic skin and a halo */
+.fs-stage.fx-holo .fs-body .fs-skin{animation:fs-holo 6s linear infinite}
+@keyframes fs-holo{to{filter:hue-rotate(360deg)}}
+.fs-halo{position:absolute;z-index:2;left:50%;top:-2%;width:26%;aspect-ratio:3/1;transform:translateX(-50%);border-radius:50%;border:2.5px solid #BFD4FF;box-shadow:0 0 12px #7FB2FF,inset 0 0 8px #7FB2FF;animation:fs-halo 3s ease-in-out infinite}
+@keyframes fs-halo{50%{transform:translateX(-50%) translateY(-3px)}}
+@media (prefers-reduced-motion:reduce){.fs-aura,.fs-particles i,.fs-figure:after,.fs-body .fs-skin,.fs-halo{animation:none!important}}
+/* next skin card and the skins sheet */
+.fs-nextskin{display:flex;align-items:center;gap:12px;width:100%;margin:6px 0 14px;padding:12px 14px;border:0;border-radius:16px;background:rgba(255,255,255,.06);color:inherit;text-align:left;cursor:pointer;font:inherit}
+.fs-nextskin span:nth-child(2){flex:1;display:flex;flex-direction:column;gap:2px}
+.fs-nextskin b{font-size:14px}.fs-nextskin small{font-size:12px;color:#C9D4EA}
+.fs-nextskin i{font-style:normal;font-size:22px;color:#7FB2FF}
+.fs-swatch{flex:0 0 auto;width:38px;height:38px;border-radius:12px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.15)}
+.fs-skins{display:flex;flex-direction:column;gap:10px;margin-top:12px}
+.fs-skinrow{display:flex;gap:12px;align-items:center;opacity:.55}
+.fs-skinrow.got{opacity:1}
+.fs-skinrow div{display:flex;flex-direction:column}
+.fs-skinrow small{color:var(--muted,#8a8f98);font-size:13px}
+.fs-unlock{text-align:center;padding-top:8px}
+.fs-unlock h2{margin:12px 0 6px}
+.fs-unlock p{color:var(--muted,#8a8f98);margin-bottom:16px}
+.fs-unlock-orb{display:flex;align-items:center;justify-content:center;width:150px;height:150px;margin:0 auto;border-radius:50%;background:radial-gradient(closest-side,color-mix(in srgb,var(--skin-a) 60%,transparent),transparent);animation:fs-pop .7s cubic-bezier(.2,1.6,.4,1)}
+@keyframes fs-pop{from{transform:scale(.3);opacity:0}}
