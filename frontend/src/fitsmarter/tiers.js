@@ -5,6 +5,10 @@
 // weight, sex, age and height. Variations and machines are rated against the closest base lift
 // with a ratio, so they are estimates. Each muscle takes the tier of its best exercise
 // (openGym's own muscle weights: primary muscles fully, assisting ones at 60 %).
+import { buildPlannedEntry } from '../lib/session-start.js'
+import { POLICY_NAME } from '../lib/progression.js'
+import { isWarmupRow } from '../lib/workout-model.js'
+import { entryDbLoad } from '../lib/dumbbells.js'
 import { exerciseOf } from '../lib/exercises.js'
 import { musclesOf } from '../lib/muscles.js'
 
@@ -172,7 +176,7 @@ export function bestByExercise(S, prof) {
   const out = {}
   for (const w of S?.workouts || []) for (const e of w.entries || []) {
     if (!rateOf(e.id)) continue
-    const dbLoad = e?.target?.dbLoad || 'as'
+    const dbLoad = entryDbLoad(e)
     for (const s of e.sets || []) {
       if (!doneSet(s)) continue
       const v = setValue(e.id, s, S.unit, dbLoad)
@@ -192,7 +196,7 @@ export function latestByExercise(S, prof) {
   const ws = [...(S?.workouts || [])].sort((a, b) => whenOf(a) - whenOf(b))
   for (const w of ws) for (const e of w.entries || []) {
     if (!rateOf(e.id)) continue
-    const dbLoad = e?.target?.dbLoad || 'as'
+    const dbLoad = entryDbLoad(e)
     const done = (e.sets || []).filter(doneSet)
     if (!done.length) continue
     let top = null
@@ -221,13 +225,33 @@ export function muscleTiers(S, prof) {
       const cur = out[m]
       const better = !cur || (prim && !cur.prim) || (prim === cur.prim && (b.at > cur.at || (b.at === cur.at && pct > cur.pct)))
       if (better) out[m] = { pct, tier: tierFor(pct), ex: id, s: b.s, prim, at: b.at, trend: b.trend, change: b.change, best: b.best, prev: b.prev,
-        next: overloadTarget(id, b, S.unit) }
+        next: planTarget(S, id) || overloadTarget(id, b, S.unit) }
     }
   }
   return out
 }
 
 /* ---------- progressive overload ---------- */
+// One progression, the plan's: when the exercise is in a routine, the target is exactly what
+// starting that routine would put on the first work set (lib/session-start.js, with the rule the
+// exercise has in the routine: linear by default, or double, Greyskull, …), and its reason.
+// Only an exercise in no routine falls back to the double progression below.
+export function planTarget(S, exId) {
+  const routines = (S?.routines || []).filter(r => (r?.ex || []).some(c => c?.id === exId))
+  if (!routines.length) return null
+  const lastRid = [...(S?.workouts || [])].reverse().flatMap(w => (w.entries || []).filter(e => e.id === exId).map(e => e.rid || w.routineId)).find(Boolean)
+  const r = routines.find(x => x.id === lastRid) || routines[0]
+  try {
+    const cfg = r.ex.find(c => c?.id === exId)
+    const e = buildPlannedEntry(S, cfg, r)
+    const set = (e?.sets || []).find(s => !isWarmupRow(s)) || e?.sets?.[0]
+    if (!set) return null
+    const plan = e.plan || {}
+    return { w: Number(set.w) || 0, r: Number(set.r) || null, sec: set.sec || null, why: 'plan', kind: plan.kind || 'hold',
+      reason: Array.isArray(plan.why) ? plan.why : null, policy: plan.policy || 'off', policyName: POLICY_NAME[plan.policy] || null, routine: r.name || '' }
+  } catch { return null }
+}
+
 // Double progression in a 6 to 12 rep range: add a rep each session at the same weight; once the
 // top set reaches 12, add the smallest sensible step and drop back to 8. Body-weight lifts add reps.
 export const REP_LOW = 8, REP_HIGH = 12

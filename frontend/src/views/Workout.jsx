@@ -77,7 +77,7 @@ import FocusView from './FocusView.jsx'
 import { startOrPreview } from '../components/StartSheets.jsx'
 import { isPaused, canPause, pauseWorkout, resumeWorkout } from '../lib/workout-pause.js'
 import { SeasonDeco } from '../components/Seasonal.jsx'
-import { entryDbLoad, bellsIn, ownedWeightsFor, stepOwned } from '../lib/dumbbells.js'
+import { entryDbLoad, bellsIn, ownedWeightsFor, stepOwned, isBellEx } from '../lib/dumbbells.js'
 import { sessionGymView, gymsOf, activeGym, gymLabel, switchGym, reRoundOpenSets } from '../lib/gym-inventory.js'
 import { gymNoteFor } from '../lib/journal.js'
 import { exView, viewEntry, inEntryUnit, shownWeight } from '../lib/ex-unit.js'
@@ -448,7 +448,7 @@ function ExerciseBlock({ entryIdx, compact, listed, dense, editing, onToggle, on
   const stepLoad = (v, step, dir) => { const c = cleanNum(v, step); return owned ? stepOwned(owned, c, dir) : stepWeight(c, step, dir) }
   // The weight column says what a dumbbell weight means when the exercise has said (#474): one
   // bell or both together. A one-arm exercise holds one bell, so its plain heading is already true.
-  const bells = !bw && bellsIn(cfg) === 2 ? meaning : 'as'
+  const bells = !bw && isBellEx(entry.id) && bellsIn(cfg) === 2 ? meaning : 'as'
   const loadCol0 = { f: 'w', step: loadStep, dec: true, hd: bw ? t('Added ({0})', S.unit)
     : bells === 'each' ? t('Each ({0})', S.unit) : bells === 'total' ? t('Both ({0})', S.unit) : t('Weight ({0})', S.unit) }
   // FitSmarter: one weight rule per exercise type (fitsmarter/weight-rule.js)
@@ -1016,7 +1016,7 @@ function ExerciseBlock({ entryIdx, compact, listed, dense, editing, onToggle, on
         ? <button type="button" className="hd-swap" onClick={switchCardioBy} aria-label={byDist ? t('Log speed instead') : t('Log distance instead')}
           title={byDist ? t('Log speed instead') : t('Log distance instead')}>{col2.hd}<Icon name="swap" /></button>
         : col2.hd}</span>}{col3 && <span className={col3.eff ? 'eff-sp' : 'r-sp inc-sp'}>{col3.hd}</span>}{timed && <span className="ck-sp" />}<span className="ck-sp" /></div>
-      {rule && <p className="fs-rule">{ruleText(rule, S.unit, t)}</p>}
+      {rule && ruleText(rule, S.unit, t) && <p className="fs-rule">{ruleText(rule, S.unit, t)}</p>}
       <span id={optsId} className="vh">{t('Options: copy, remove')}</span>
       {entry.sets.map((s, i) => {
         const warm = isWarmupRow(s)

@@ -1,5 +1,6 @@
 // FitSmarter body hub: every muscle in the tier of its best exercise, growing with the tier,
 // plus the levels explainer and how to log weights. Part of this AGPL fork.
+import { loadKindFor, baseWeightFor } from '../lib/plates.js'
 import { aboutYouSheet } from '../components/StrengthLevel.jsx'
 import { bwSheet } from '../sheets.jsx'
 import { useEffect, useMemo, useState } from 'react'
@@ -71,7 +72,19 @@ const fmtW = (kg, unit) => { const v = unit === 'lb' ? kg / LB : kg; return `${M
 const setText = (id, s, unit) => (isRepsRated(id) ? t('{0} reps', s.r) : `${+(+s.w).toFixed(1)} ${unit} × ${s.r}`)
 const ARROW = { up: '▲', down: '▼', flat: '=' }
 const Trend = ({ r }) => r?.trend ? <i className={'fs-trend ' + r.trend} aria-label={t(r.trend === 'up' ? 'Stronger than last time' : r.trend === 'down' ? 'Weaker than last time' : 'Same as last time')}>{ARROW[r.trend]}{r.change ? ` ${Math.abs(r.change)}%` : ''}</i> : null
-const nextText = (id, n, unit) => (n ? (isRepsRated(id) || !n.w ? t('{0} reps', n.r) : `${+(+n.w).toFixed(2)} ${unit} × ${n.r}`) : '')
+// The target as you will type it: a barbell's plates per side (fitsmarter/weight-rule.js), the rest as stored.
+const sideOf = (id, w) => { const base = baseWeightFor(useStore.getState().S, id); return Math.max(0, Math.round((w - base) / 2 * 100) / 100) }
+const nextText = (id, n, unit) => {
+  if (!n) return ''
+  if (n.sec) return `${n.sec} s`
+  if (isRepsRated(id) || !n.w) return t('{0} reps', n.r)
+  const w = `${+(+n.w).toFixed(2)} ${unit}${n.r ? ` × ${n.r}` : ''}`
+  return loadKindFor(useStore.getState().S, { id }) === 'pairs' ? `${w} (${t('{0} per side', sideOf(id, n.w))})` : w
+}
+const whyText = n => {
+  if (n.why === 'plan') return [n.reason ? t(...n.reason) : '', n.routine ? t('{0} · {1}', n.routine, t(n.policyName || '')) : ''].filter(Boolean).join(' · ')
+  return n.why === 'weight' ? t('You reached {0} reps: add weight and start again at {1}.', 12, 8) : t('Same weight, one more rep. At {0} reps you add weight.', 12)
+}
 const dayText = ts => (ts ? new Date(ts).toLocaleDateString(undefined, { day: 'numeric', month: 'short' }) : '')
 const BENCH = () => CATALOGUE.find(e => (e.n || '').toLowerCase() === 'barbell bench press')
 
@@ -112,7 +125,8 @@ function muscleSheet(slug, map, prof, nav) {
       {r.best && r.best.at !== r.at && r.best.at !== r.prev?.at && <div className="fs-kv"><span>{t('Record')} · {dayText(r.best.at)}</span><b>{setText(r.ex, r.best.s, prof.unit)}</b></div>}
       {r.next && <div className="fs-overload"><b>{t('Progressive overload')}</b>
         <span>{t('Next time on {0}: {1}', nameOf(r.ex), nextText(r.ex, r.next, prof.unit))}</span>
-        <small>{r.next.why === 'weight' ? t('You reached {0} reps: add weight and start again at {1}.', 12, 8) : t('Same weight, one more rep. At {0} reps you add weight.', 12)}</small></div>}
+        <small>{whyText(r.next)}</small>
+        {r.next.why !== 'plan' && <small>{t('Not in any routine yet: add it to a routine and your plan sets the weight.')}</small>}</div>}
       {!r.prim && <p className="fs-small fs-muted">{t('assisting muscle, counts 60%')}</p>}
       <p className="fs-small fs-muted">{t('Levels and muscle size follow your most recent session, not your all-time best.')}</p>
       {nx && <p className="fs-next"><Gem tier={nx.tier} size={18} /> {t('Next: {0} at {1} × 10 on {2}', nx.tier.n, isRepsRated(r.ex) ? t('{0} reps', Math.ceil(nx.value)) : fmtW(nx.value, prof.unit), nameOf(r.ex))}</p>}

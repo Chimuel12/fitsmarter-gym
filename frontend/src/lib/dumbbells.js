@@ -56,7 +56,9 @@ export function dbLoadOf(value) {
  */
 export function dbLoadFor(S, cfgOrId) {
   const cfg = typeof cfgOrId === 'string' ? { id: cfgOrId } : (cfgOrId || {})
-  // FitSmarter: a dumbbell weight is always ONE bell unless the exercise says otherwise
+  // FitSmarter: a dumbbell or kettlebell weight is ONE bell unless the exercise says otherwise.
+  // Anything else (a machine, a cable, a barbell) has no such meaning: its weight is as entered.
+  if (!isBellEx(cfg.id)) return 'as'
   return dbLoadOf(cfg.dbLoad) || dbLoadOf(S?.dbLoad?.[cfg.id]) || 'each'
 }
 
@@ -86,7 +88,9 @@ export function withMeaning(S, cfg, id = cfg?.id) {
 }
 
 /** The meaning a logged entry was saved with: its target's stamp, 'as' when it has none. */
-export const entryDbLoad = entry => dbLoadOf(entry?.target?.dbLoad) || 'as'
+// Only a dumbbell or kettlebell exercise can mean 'each' or 'total': a stamp on anything else (FitSmarter
+// 2.0.0 to 2.0.2 stamped 'each' on every exercise) is read as entered, so its volume is not doubled.
+export const entryDbLoad = entry => (isBellEx(entry?.id) ? dbLoadOf(entry?.target?.dbLoad) || 'as' : 'as')
 const cfgOfEntry = entry => ({ ...(entry?.target || {}), id: entry?.id })
 
 /** What one logged kilo of this entry is worth in volume: 2 for "each" on two bells, else 1. */

@@ -93,3 +93,20 @@ describe('progressive overload', () => {
     expect(muscleTiers(S, MAN).chest.next).toEqual({ w: 62.5, r: 8, why: 'weight' })
   })
 })
+
+describe('one progression: the plan decides', () => {
+  it('shows what the routine would start with, and why', () => {
+    const id = bench().id
+    const S = { unit: 'kg', routines: [{ id: 'r1', name: 'Push', ex: [{ id, sets: 3, reps: 8, weight: 60 }] }],
+      workouts: [{ id: 'w1', date: '2026-11-18', start: '2026-11-18T10:00:00Z', routineId: 'r1', entries: [{ id, rid: 'r1', target: { sets: 3, reps: 8, weight: 60 }, sets: [1, 2, 3].map(() => ({ w: 60, r: 8, done: true })) }] }] }
+    const n = muscleTiers(S, MAN).chest.next
+    expect(n).toMatchObject({ w: 62.5, r: 8, why: 'plan', kind: 'up', policy: 'linear', routine: 'Push' })
+    expect(n.reason[0]).toMatch(/Every rep/)
+  })
+  it('holds the weight when the reps were missed', () => {
+    const id = bench().id
+    const S = { unit: 'kg', routines: [{ id: 'r1', name: 'Push', ex: [{ id, sets: 3, reps: 8, weight: 60 }] }],
+      workouts: [{ id: 'w1', date: '2026-11-18', start: '2026-11-18T10:00:00Z', routineId: 'r1', entries: [{ id, rid: 'r1', target: { sets: 3, reps: 8, weight: 60 }, sets: [{ w: 60, r: 8, done: true }, { w: 60, r: 6, done: true }, { w: 60, r: 5, done: true }] }] }] }
+    expect(muscleTiers(S, MAN).chest.next).toMatchObject({ w: 60, why: 'plan' })
+  })
+})

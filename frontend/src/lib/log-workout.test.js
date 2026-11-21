@@ -94,7 +94,7 @@ describe('the numbers', () => {
     const w = build(profile(), { date: TODAY, exercises: [{ exercise: '0025', sets: [{ reps: 5, weight: 120, warmup: true }, { reps: 5, weight: 100 }] }] }).workout
     expect(w.entries[0].sets[0]).toMatchObject({ phase: 'warmup' })
     expect(w.entries[0].topW).toBe(100)
-    expect(w.vol).toBe(1000) // FitSmarter: one-dumbbell default, both bells count
+    expect(w.vol).toBe(500)
   })
 
   it('a timed hold keeps its mode on the entry, so it reads back as 1:00 and not as 0 reps', () => {

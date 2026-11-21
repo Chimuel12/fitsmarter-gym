@@ -5,6 +5,7 @@
 // (date, duration, sets, volume, best lifts and their tiers) is posted to your groups. The
 // Firebase SDK is loaded from Google's CDN on demand, so openGym gains no npm dependency.
 // Security rules: firestore.rules in the FitSmarter repository (deployed to fitsmarter-z2bit).
+import { entryDbLoad } from '../lib/dumbbells.js'
 import CONFIG from './firebase-config.js'
 import { isAndroid } from '../lib/mobile.js'
 import { workoutVolume, workoutDuration } from '../lib/history.js'
@@ -98,7 +99,7 @@ export function postOf(w, prof) {
     const ds = doneSets(e)
     sets += ds.length
     if (!rateOf(e.id) || !ds.length) continue
-    const dbLoad = e?.target?.dbLoad || 'as'
+    const dbLoad = entryDbLoad(e)
     const best = ds.reduce((b, s) => { const v = setValue(e.id, s, prof.unit, dbLoad); return v > b.v ? { v, s } : b }, { v: 0, s: null })
     if (!best.s) continue
     const pct = percentileOf(e.id, best.v, prof), ex = exerciseOf(e.id)
