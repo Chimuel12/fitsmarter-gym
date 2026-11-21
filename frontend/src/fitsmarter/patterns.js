@@ -104,10 +104,14 @@ export function withPattern(mat, kind) {
     shader.uniforms.uFsTime = clock
     shader.uniforms.uFsDef = definition
     shader.vertexShader = shader.vertexShader
-      .replace('#include <common>', '#include <common>\nvarying vec3 vFsPos;')
+      .replace('#include <common>', '#include <common>\nvarying vec3 vFsPos;\nattribute vec2 aMR;\nvarying vec2 vMR;')
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvMR = aMR;')
       .replace('#include <worldpos_vertex>', '#include <worldpos_vertex>\nvFsPos = (modelMatrix * vec4(transformed, 1.0)).xyz;')
     shader.fragmentShader = shader.fragmentShader
-      .replace('#include <common>', '#include <common>\n' + NOISE)
+      .replace('#include <common>', '#include <common>\n' + NOISE + '\nvarying vec2 vMR;')
+      // each muscle's own finish (metal or not, polished or matte), per vertex
+      .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nroughnessFactor = vMR.y;')
+      .replace('#include <metalnessmap_fragment>', '#include <metalnessmap_fragment>\nmetalnessFactor = vMR.x;')
       .replace('#include <normal_fragment_maps>', '#include <normal_fragment_maps>\n' + RELIEF)
       .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n{' + body + '}')
   }

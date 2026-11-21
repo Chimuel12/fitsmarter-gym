@@ -9,7 +9,7 @@ import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 're
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
-import { loadHuman, shape, regionMap, geometryOf } from './human.js'
+import { loadHuman, shape, regionMap, regionWeights, geometryOf } from './human.js'
 import { withPattern, clock as patternClock, definition } from './patterns.js'
 import { tierIndex, TIERS } from './tiers.js'
 import { muscleScale } from './skins.js'
@@ -34,7 +34,12 @@ const look = id => withPattern((LOOK[id] || LOOK.none)(), id)
 
 /* ---------- colour: a hint of each muscle's own level on the skin ---------- */
 const hex = c => [((c >> 16) & 255) / 255, ((c >> 8) & 255) / 255, (c & 255) / 255]
-const TINT = Object.fromEntries(TIERS.map(t => [t.id, hex(parseInt(t.c.slice(1), 16))]))
+// Each level's own finish for a muscle: colour, metalness, roughness.
+const FINISH = {
+  iron: [0x7b828c, 0.7, 0.55], bronze: [0xc27a43, 1, 0.3], silver: [0xf2f5f9, 1, 0.12], gold: [0xffc534, 1, 0.16],
+  ruby: [0xd0102a, 0.25, 0.12], emerald: [0x17a35d, 0.25, 0.25], diamond: [0xe6f8ff, 0.35, 0.04], champion: [0x7b4fe0, 0.35, 0.28],
+  symmetric: [0x8fb4ff, 0.85, 0.1], olympian: [0xf4efe6, 0, 0.42],
+}
 
 /* ---------- sparkles for gemstone levels, a burst for the level-up ---------- */
 function starTexture() {
@@ -75,9 +80,9 @@ const Body3D = forwardRef(function Body3D({ map, skin = 'none', level = -1, onMu
     const glint = [new THREE.PointLight(0xffffff, 0, 4), new THREE.PointLight(0xffffff, 0, 4)]; glint.forEach(l => scene.add(l))
     const fig = new THREE.Group(); scene.add(fig)
     const body = new THREE.Mesh(new THREE.BufferGeometry(), look('none')); body.material.vertexColors = true; fig.add(body)
-    let human = null, regionOf = () => null, pending = null
+    let human = null, regionOf = () => null, regions = [], pending = null
     loadHuman().then(h => {
-      human = h; regionOf = regionMap(h)
+      human = h; regionOf = regionMap(h); regions = regionWeights(h)
       body.geometry.dispose(); body.geometry = geometryOf(h)
       if (pending) api.current?.apply(pending)
     }).catch(() => setNogl(true))
@@ -100,7 +105,7 @@ const Body3D = forwardRef(function Body3D({ map, skin = 'none', level = -1, onMu
       ray.setFromCamera(pt, camera)
       const hit = ray.intersectObject(body, false)[0]
       const local = hit && body.worldToLocal(hit.point.clone())
-      const slug = hit && hit.face && regionOf(hit.face.a, local.z)
+      const slug = hit && hit.face && regionOf(hit.face.a)
       if (slug) api.current?.onMuscle?.(slug)
     }
     renderer.domElement.addEventListener('pointerdown', onDown)
@@ -143,7 +148,9 @@ const Body3D = forwardRef(function Body3D({ map, skin = 'none', level = -1, onMu
       apply(state) {
         this.state = state
         const old = body.material, mat = look(state.skin)
-        mat.vertexColors = true
+        // the overall level's colour and finish everywhere; each muscle's own on top (vertex attributes)
+        const skinCol = mat.color.clone(), skinMR = [mat.metalness ?? 0.5, mat.roughness ?? 0.5]
+        mat.color.set(0xffffff); mat.vertexColors = true
         body.material = mat; old.dispose?.()
         if (!human) { pending = state; return }
         // the whole body from the overall level; each region from its muscle's own level
@@ -162,14 +169,30 @@ const Body3D = forwardRef(function Body3D({ map, skin = 'none', level = -1, onMu
         g.getAttribute('position').array.set(pos); g.getAttribute('position').needsUpdate = true
         g.computeVertexNormals(); g.computeBoundingSphere()
         const marble = state.skin === 'olympian'
-        const tint = false   // a per-muscle colour made patches at the region edges; the level's material says it
-        const col = g.getAttribute('color'), c = col.array
+        const col = g.getAttribute('color'), c = col.array, mrA = g.getAttribute('aMR'), mr = mrA.array
+        // the finish each region shows, from its muscle's level (front or back of the limb)
+        const fin = regions.map(r => {
+          const front = r.tap(1), back = r.tap(-1)
+          const f = m => { const t = state.map?.[m]; if (!t) return null; const v = FINISH[t.tier.id]; return v && { c: new THREE.Color(v[0]), m: v[1], r: v[2] } }
+          return { front: f(front), back: f(back) }
+        })
+        const tmp = new THREE.Color()
         for (let v = 0; v < human.nv; v++) {
-          let r = 1, gg = 1, b = 1
-          const m = tint && regionOf(v, pos[v * 3 + 2]), st = m && state.map?.[m]
-          if (st) { const t = TINT[st.tier.id]; r = 0.72 + 0.28 * t[0]; gg = 0.72 + 0.28 * t[1]; b = 0.72 + 0.28 * t[2] }
-          c[v * 3] = r; c[v * 3 + 1] = gg; c[v * 3 + 2] = b
+          let wr = 0, rr = 0, gg = 0, bb = 0, mm = 0, ro = 0
+          const zr = human.base[v * 3 + 2]
+          for (let k = 0; k < regions.length; k++) {
+            const w = regions[k].w[v]; if (!w) continue
+            const f = zr - regions[k].zMid >= 0 ? fin[k].front || fin[k].back : fin[k].back || fin[k].front
+            if (!f) continue
+            wr += w; rr += f.c.r * w; gg += f.c.g * w; bb += f.c.b * w; mm += f.m * w; ro += f.r * w
+          }
+          const a = Math.min(1, wr)
+          if (wr > 0) { rr /= wr; gg /= wr; bb /= wr; mm /= wr; ro /= wr }
+          tmp.setRGB(skinCol.r + (rr - skinCol.r) * a, skinCol.g + (gg - skinCol.g) * a, skinCol.b + (bb - skinCol.b) * a)
+          c[v * 3] = tmp.r; c[v * 3 + 1] = tmp.g; c[v * 3 + 2] = tmp.b
+          mr[v * 2] = skinMR[0] + (mm - skinMR[0]) * a; mr[v * 2 + 1] = skinMR[1] + (ro - skinMR[1]) * a
         }
+        mrA.needsUpdate = true
         col.needsUpdate = true
         twinkle.visible = state.level >= 6 && !marble
         glint.forEach(l => { l.intensity = state.level >= 6 && !marble ? 6 : 0 })

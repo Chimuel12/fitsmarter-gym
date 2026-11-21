@@ -110,9 +110,28 @@ function pose(p) {
   }
 }
 
+/**
+ * For colour: each vertex's share in each muscle region, from how far that region's target moves
+ * it (0–1, softened), so a muscle's colour fades smoothly into its neighbours. Built once.
+ * Returns [{ name, w: Float32Array(nv) }].
+ */
+export function regionWeights(h) {
+  const out = []
+  for (const name of Object.keys(TAP)) {
+    const t = h.targets[name]; if (!t) continue
+    const w = new Float32Array(h.nv); let max = 0
+    for (let k = 0; k < t.idx.length; k++) { const m = Math.hypot(t.d[k * 3], t.d[k * 3 + 1], t.d[k * 3 + 2]); w[t.idx[k]] = m; if (m > max) max = m }
+    let zs = 0, ws = 0
+    for (let i = 0; i < h.nv; i++) { w[i] = Math.min(1, Math.sqrt(w[i] / (max || 1)) * 1.6); if (w[i] > 0.5) { zs += h.base[i * 3 + 2]; ws++ } }
+    out.push({ name, w, tap: TAP[name], zMid: ws ? zs / ws : 0 })
+  }
+  return out
+}
+
 /** For taps: vertex → the target that moves it most (built once). */
 export function regionMap(h) {
-  const best = new Float32Array(h.nv), who = new Array(h.nv)
+  const best = new Float32Array(h.nv), who = new Array(h.nv), mid = {}
+  for (const r of regionWeights(h)) mid[r.name] = r.zMid
   for (const name of Object.keys(TAP)) {
     const t = h.targets[name]; if (!t) continue
     for (let k = 0; k < t.idx.length; k++) {
@@ -120,13 +139,15 @@ export function regionMap(h) {
       if (m > best[t.idx[k]]) { best[t.idx[k]] = m; who[t.idx[k]] = name }
     }
   }
-  return (vi, z) => (who[vi] ? TAP[who[vi]](z) : null)
+  // front or back: against the middle of that region in the rest shape, not the body's centre
+  return vi => (who[vi] ? TAP[who[vi]](h.base[vi * 3 + 2] - mid[who[vi]]) : null)
 }
 
 export function geometryOf(h) {
   const g = new THREE.BufferGeometry()
   g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(h.base), 3))
   g.setAttribute('color', new THREE.BufferAttribute(new Float32Array(h.nv * 3).fill(1), 3))
+  g.setAttribute('aMR', new THREE.BufferAttribute(new Float32Array(h.nv * 2).fill(0.5), 2))
   g.setIndex(new THREE.BufferAttribute(h.index, 1))
   g.computeVertexNormals()
   return g
