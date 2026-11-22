@@ -85,13 +85,13 @@ export function shape(h, { muscle = 0.3, lean = 0.3, local = {} }) {
 const POSE = {
   'upperarm01': [['z', -0.58]],                   // arms down to the sides
   'lowerarm01': [['x', 0.42], ['z', 0.3]],        // forearm down beside the thigh, elbow softly bent
-  'lowerarm02': [['y', -0.35]],                   // turn the forearm so the palm faces the thigh
-  'wrist': [['x', 0.3], ['z', -0.1]],             // a relaxed wrist
-  'finger1-1': [['y', -0.15]], 'finger1-2': [['x', 0.15]], 'finger1-3': [['x', 0.15]],
-  'finger2-1': [['x', 0.18]], 'finger2-2': [['x', 0.28]], 'finger2-3': [['x', 0.22]],
-  'finger3-1': [['x', 0.22]], 'finger3-2': [['x', 0.32]], 'finger3-3': [['x', 0.24]],
-  'finger4-1': [['x', 0.26]], 'finger4-2': [['x', 0.36]], 'finger4-3': [['x', 0.26]],
-  'finger5-1': [['x', 0.3]], 'finger5-2': [['x', 0.4]], 'finger5-3': [['x', 0.28]],
+  'lowerarm02': [['twist', -1.2]],                // turn the forearm about itself: palm to the thigh, thumb forward
+  'wrist': [['x', 0.08]],                         // a straight, relaxed wrist
+  'finger1-1': [['y', -0.1]], 'finger1-2': [['x', 0.2]], 'finger1-3': [['x', 0.25]],
+  'finger2-1': [['x', 0.3]], 'finger2-2': [['x', 0.45]], 'finger2-3': [['x', 0.35]],
+  'finger3-1': [['x', 0.34]], 'finger3-2': [['x', 0.5]], 'finger3-3': [['x', 0.38]],
+  'finger4-1': [['x', 0.38]], 'finger4-2': [['x', 0.55]], 'finger4-3': [['x', 0.4]],
+  'finger5-1': [['x', 0.42]], 'finger5-2': [['x', 0.6]], 'finger5-3': [['x', 0.42]],
 }
 const AXES = { x: new THREE.Vector3(1, 0, 0), y: new THREE.Vector3(0, 1, 0), z: new THREE.Vector3(0, 0, 1) }
 let mats = null
@@ -101,7 +101,9 @@ function boneMatrices(h) {
   for (const b of h.bones) {
     const side = b.name.endsWith('.R') ? -1 : 1, key = b.name.replace(/\.[LR]$/, '')
     q.identity()
-    for (const [ax, ang] of POSE[key] || []) q.multiply(r.setFromAxisAngle(AXES[ax], ax === 'x' ? ang : ang * side))
+    // 'twist' turns about the bone's own length (head to tail), like turning a forearm
+    const own = new THREE.Vector3(b.tail[0] - b.head[0], b.tail[1] - b.head[1], b.tail[2] - b.head[2]).normalize()
+    for (const [ax, ang] of POSE[key] || []) q.multiply(r.setFromAxisAngle(ax === 'twist' ? own : AXES[ax], ax === 'x' ? ang : ang * side))
     const hd = new THREE.Vector3(...b.head)
     const local = new THREE.Matrix4().makeTranslation(hd.x, hd.y, hd.z).multiply(new THREE.Matrix4().makeRotationFromQuaternion(q)).multiply(new THREE.Matrix4().makeTranslation(-hd.x, -hd.y, -hd.z))
     out.push(b.parent >= 0 ? out[b.parent].clone().multiply(local) : local)

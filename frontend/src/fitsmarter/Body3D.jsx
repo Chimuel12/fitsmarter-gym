@@ -132,6 +132,8 @@ const Body3D = forwardRef(function Body3D({ map, skin = 'none', level = -1, onMu
       renderer.render(scene, camera)
     }
     frame()
+    // development only: point the camera anywhere (close-ups of the hands while posing them)
+    if (import.meta.env.DEV) window.__fsCam = { set(x, y, z, tx, ty, tz) { controls.autoRotate = false; camera.position.set(x, y, z); controls.target.set(tx, ty, tz); controls.minDistance = 0.1; controls.update() } }
     api.current = {
       state: {},
       apply(state) {

@@ -215,3 +215,9 @@
 .fs-stage.skin-gold{background:radial-gradient(65% 48% at 50% 45%,rgba(255,200,90,.28),transparent 70%)}
 .fs-stage.skin-ruby{background:radial-gradient(65% 48% at 50% 45%,rgba(255,40,70,.26),transparent 70%)}
 .fs-stage.skin-olympian{background:radial-gradient(65% 48% at 50% 40%,rgba(255,240,210,.22),transparent 70%)}
+
+/* Body: preview any level */
+.fs-tiers button.on{opacity:1;transform:scale(1.18)}
+.fs-tiers button[aria-pressed="true"] small{color:#fff}
+.fs-peekbar{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:8px 4px 0;font-size:12px;color:#AFC0E0}
+.fs-peekbar button{border:0;border-radius:999px;padding:6px 12px;background:rgba(255,255,255,.1);color:#fff;font:inherit;font-weight:700;font-size:12px;cursor:pointer;white-space:nowrap}

@@ -277,7 +277,9 @@ export default function Hub() {
   const saveHeight = v => { const n = Math.round(Number(v)) || 0; setHeight(n); try { n ? localStorage.setItem(HEIGHT_KEY, String(n)) : localStorage.removeItem(HEIGHT_KEY) } catch { /* private mode */ } }
   const missing = !prof.weight || !S?.birthYear || !height
   // #/body?skin=gold previews a skin without changing anything (and without the unlock sheet).
-  const preview = new URLSearchParams(location.hash.split('?')[1] || '').get('skin')
+  // a level to look at instead of your own: a gem tapped in the strip, or #/body?skin=gold
+  const [peek, setPeek] = useState(null)
+  const preview = peek || new URLSearchParams(location.hash.split('?')[1] || '').get('skin')
   const forced = preview && TIERS.some(x => x.id === preview) ? preview : null
   const body3d = useRef(null)
   const skin = forced || skinOf(ov), level = forced ? tierIndex(forced) : skinLevel(ov), upcoming = nextSkin(level)
@@ -310,8 +312,12 @@ export default function Hub() {
       <button className="btn fs-lvlbtn" onClick={() => nav('/stats')}>{t('Stats')}</button></div>
     <div className="fs-hub">
       <GemDefs />
-      <div className="fs-tiers">{TIERS.slice(1).map(tr => <button key={tr.id} className={ov?.tier.id === tr.id ? 'on' : ''} onClick={() => levelsSheet(prof)} aria-label={tr.n}>
+      <div className="fs-tiers">{TIERS.slice(1).map(tr => <button key={tr.id} className={(forced ? forced === tr.id : ov?.tier.id === tr.id) ? 'on' : ''}
+        onClick={() => setPeek(p => (p === tr.id ? null : tr.id))} aria-label={t('See the body at {0}', tr.n)} aria-pressed={forced === tr.id}>
         <Gem tier={tr} size={24} /><small>{t('{0}%', tr.top)}</small></button>)}</div>
+      <div className="fs-peekbar">{forced
+        ? <><span>{t('Preview: {0}', TIERS[tierIndex(forced)].n)}</span><button onClick={() => { setPeek(null); if (location.hash.includes('skin=')) location.hash = '#/body' }}>{t('Back to my body')}</button></>
+        : <><span>{t('Tap a level to see your body at it')}</span><button onClick={() => levelsSheet(prof)}>{t('What the levels mean')}</button></>}</div>
       <div className={'fs-stage skin-' + skin + ' ' + skinClasses(level)} style={{ '--skin-a': SKINS[skin].stops[0], '--skin-b': SKINS[skin].stops.at(-1) }}>
         {moves.length > 0 && <div className="fs-delta" role="status" onClick={() => setMoves([])}>{[...moves.filter(x => x.dir === 'up').slice(0, 3), ...moves.filter(x => x.dir === 'down').slice(0, 2)].map(x => <div key={x.slug} className={x.dir}>
           <i>{x.dir === 'up' ? '▲' : '▼'}</i><b>{t(MUSCLE_NAME[x.slug])}</b><span>{x.from ? x.from.n : t('Untrained')} → {x.to ? x.to.n : t('Untrained')}</span></div>)}
