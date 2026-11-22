@@ -20,7 +20,9 @@ export function loadHuman() {
       const d = new Int16Array(buf, o, t.n * 3); o += t.n * 6
       targets[t.name] = { idx, d }
     }
-    return { ...head, base, index, targets }
+    const skinBone = new Uint8Array(buf, o, head.nv * 4); o += head.nv * 4
+    const skinW = new Uint8Array(buf, o, head.nv * 4); o += head.nv * 4
+    return { ...head, base, index, targets, skinBone, skinW }
   })
   return loading
 }
@@ -72,41 +74,52 @@ export function shape(h, { muscle = 0.3, lean = 0.3, local = {} }) {
   for (const [t, v] of Object.entries(w)) add(t, v)
   // the V: broad back and shoulders together
   add('torso-vshape-incr', Math.min(1, ((local.lats || 0) + (local['side-delts'] || 0)) / 2) * 0.5)
-  pose(p)
+  pose(p, h)
   return p
 }
 
-/* MakeHuman's body stands in an A-pose (arms about 49° below horizontal). A natural, relaxed
-   stance: each arm turns down about its shoulder joint to hang beside the body, the elbows bend a
-   little forward and the hands rest by the thighs. Like a simple skeleton: only points near the
-   arm's own axis move, blended in across the shoulder so the deltoid and armpit stay smooth. */
-const SHOULDER = [0.172, 1.372, -0.12], ARM_DIR = [0.655, -0.756]   // from the measured A-pose
-const DROP = 0.6, BEND = 0.32, UPPER = 0.27                      // radians, radians, metres to the elbow
-const ss = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t) }
-function pose(p) {
-  for (let i = 0; i < p.length; i += 3) {
-    const s = Math.sign(p[i]) || 1
-    const dx = p[i] - s * SHOULDER[0], dy = p[i + 1] - SHOULDER[1]
-    const t = dx * s * ARM_DIR[0] + dy * ARM_DIR[1]                  // along the arm
-    const px = dx - s * ARM_DIR[0] * t, py = dy - ARM_DIR[1] * t       // away from its axis
-    const perp = Math.hypot(px, py)
-    const lim = 0.095 + 0.09 * ss(0.12, 0.34, t)
-    if (t < -0.04 || perp > lim + 0.03) continue
-    // fades out both up the shoulder and out to the side, so no triangle is torn at the armpit
-    const w = ss(-0.04, 0.07, t) * (1 - ss(lim - 0.03, lim + 0.03, perp))
-    // down about the shoulder (in the body's plane)
-    const a = -s * DROP * w, c = Math.cos(a), sn = Math.sin(a)
-    let x = dx * c - dy * sn, y = dx * sn + dy * c, z = p[i + 2]
-    // the elbow: the forearm and hand swing a little forward
-    const e = ss(UPPER - 0.03, UPPER + 0.04, t)
-    if (e > 0) {
-      const ex = s * ARM_DIR[0] * UPPER, ey = ARM_DIR[1] * UPPER
-      const exr = ex * c - ey * sn, eyr = ex * sn + ey * c         // the elbow, already lowered
-      const b = BEND * e, cb = Math.cos(b), sb = Math.sin(b)
-      const ry = y - eyr, rz = z - SHOULDER[2]
-      y = eyr + ry * cb - rz * sb; z = SHOULDER[2] + ry * sb + rz * cb
+/* A natural standing pose with MakeHuman's own skeleton (default.mhskel, CC0): each bone turns
+   about its joint, children follow their parents, and the skin follows the bones by MakeHuman's
+   weights. Angles in radians about the body's axes (x across, y up, z forward), for the left side;
+   the right side mirrors them. */
+const POSE = {
+  'upperarm01': [['z', -0.58]],                   // arms down to the sides
+  'lowerarm01': [['x', 0.42], ['z', 0.3]],        // forearm down beside the thigh, elbow softly bent
+  'lowerarm02': [['y', -0.35]],                   // turn the forearm so the palm faces the thigh
+  'wrist': [['x', 0.3], ['z', -0.1]],             // a relaxed wrist
+  'finger1-1': [['y', -0.15]], 'finger1-2': [['x', 0.15]], 'finger1-3': [['x', 0.15]],
+  'finger2-1': [['x', 0.18]], 'finger2-2': [['x', 0.28]], 'finger2-3': [['x', 0.22]],
+  'finger3-1': [['x', 0.22]], 'finger3-2': [['x', 0.32]], 'finger3-3': [['x', 0.24]],
+  'finger4-1': [['x', 0.26]], 'finger4-2': [['x', 0.36]], 'finger4-3': [['x', 0.26]],
+  'finger5-1': [['x', 0.3]], 'finger5-2': [['x', 0.4]], 'finger5-3': [['x', 0.28]],
+}
+const AXES = { x: new THREE.Vector3(1, 0, 0), y: new THREE.Vector3(0, 1, 0), z: new THREE.Vector3(0, 0, 1) }
+let mats = null
+function boneMatrices(h) {
+  if (mats) return mats
+  const out = [], q = new THREE.Quaternion(), r = new THREE.Quaternion()
+  for (const b of h.bones) {
+    const side = b.name.endsWith('.R') ? -1 : 1, key = b.name.replace(/\.[LR]$/, '')
+    q.identity()
+    for (const [ax, ang] of POSE[key] || []) q.multiply(r.setFromAxisAngle(AXES[ax], ax === 'x' ? ang : ang * side))
+    const hd = new THREE.Vector3(...b.head)
+    const local = new THREE.Matrix4().makeTranslation(hd.x, hd.y, hd.z).multiply(new THREE.Matrix4().makeRotationFromQuaternion(q)).multiply(new THREE.Matrix4().makeTranslation(-hd.x, -hd.y, -hd.z))
+    out.push(b.parent >= 0 ? out[b.parent].clone().multiply(local) : local)
+  }
+  return (mats = out.map(m => m.elements))
+}
+function pose(p, h) {
+  if (!h?.bones || !h.skinBone) return
+  const M = boneMatrices(h)
+  for (let v = 0; v < h.nv; v++) {
+    const x = p[v * 3], y = p[v * 3 + 1], z = p[v * 3 + 2]
+    let nx = 0, ny = 0, nz = 0, wsum = 0
+    for (let k = 0; k < 4; k++) {
+      const w = h.skinW[v * 4 + k] / 255; if (!w) continue
+      const e = M[h.skinBone[v * 4 + k]]
+      nx += w * (e[0] * x + e[4] * y + e[8] * z + e[12]); ny += w * (e[1] * x + e[5] * y + e[9] * z + e[13]); nz += w * (e[2] * x + e[6] * y + e[10] * z + e[14]); wsum += w
     }
-    p[i] = s * SHOULDER[0] + x; p[i + 1] = SHOULDER[1] + y; p[i + 2] = z
+    if (wsum > 0) { p[v * 3] = nx / wsum; p[v * 3 + 1] = ny / wsum; p[v * 3 + 2] = nz / wsum }
   }
 }
 

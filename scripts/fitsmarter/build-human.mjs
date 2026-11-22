@@ -3,7 +3,9 @@
 //   node scripts/fitsmarter/build-human.mjs <folder with base.obj and the .target files>
 // Only the "body" group is kept (no eyes, teeth, helpers). Units: metres, feet on y = 0.
 // Layout (little-endian): u32 header length, JSON header, then per the header's offsets:
-// positions f32[nv*3], indices u32[ni], and per target u16 index[n] + i16 delta[n*3] (0.1 mm).
+// positions f32[nv*3], indices u32[ni], per target u16 index[n] + i16 delta[n*3] (0.1 mm),
+// then the skeleton's skin: u8 bone[nv*4] + u8 weight[nv*4] (the four strongest bones, /255).
+// The skeleton itself (default.mhskel: bones, parents, joint positions) is in the header.
 import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
@@ -43,6 +45,15 @@ const readTarget = name => {
   }
   return out
 }
+const rawTarget = name => {
+  const out = new Map()
+  for (const l of readFileSync(join(dir, name + '.target'), 'utf8').split('\n')) {
+    if (!l || l[0] === '#') continue
+    const [i, x, y, z] = l.trim().split(/\s+/)
+    out.set(+i, [+x * UNIT, +y * UNIT, +z * UNIT])
+  }
+  return out
+}
 const pos = new Float32Array(keep.length * 3)
 keep.forEach((v, i) => { pos[i * 3] = V[v][0] * UNIT; pos[i * 3 + 1] = V[v][1] * UNIT; pos[i * 3 + 2] = V[v][2] * UNIT })
 const targets = Object.fromEntries(TARGETS.map(n => [n, readTarget(n)]))
@@ -55,8 +66,24 @@ for (let i = 0; i < keep.length; i++) { minY = Math.min(minY, pos[i * 3 + 1]); m
 cx /= keep.length; cz /= keep.length
 for (let i = 0; i < keep.length; i++) { pos[i * 3] -= cx; pos[i * 3 + 1] -= minY; pos[i * 3 + 2] -= cz }
 
+// the skeleton: joint positions from MakeHuman's joint helper vertices (same race blend, same shift)
+const sk = JSON.parse(readFileSync(join(dir, 'default.mhskel'), 'utf8'))
+const races = ['caucasian', 'african', 'asian'].map(r => rawTarget(`${r}-male-young`))
+const at = vi => { const p = V[vi].map(v => v * UNIT); for (const t of races) { const d = t.get(vi); if (d) for (let c = 0; c < 3; c++) p[c] += d[c] / 3 } return [p[0] - cx, p[1] - minY, p[2] - cz] }
+const joint = name => { const vs = sk.joints[name]; const p = [0, 0, 0]; for (const v of vs) { const q = at(v); for (let c = 0; c < 3; c++) p[c] += q[c] / vs.length } return p.map(v => +v.toFixed(5)) }
+const names = Object.keys(sk.bones), order = []
+const visit = n => { if (order.includes(n)) return; const pa = sk.bones[n].parent; if (pa) visit(pa); order.push(n) }
+names.forEach(visit)
+const bones = order.map(n => ({ name: n, parent: sk.bones[n].parent ? order.indexOf(sk.bones[n].parent) : -1, head: joint(sk.bones[n].head), tail: joint(sk.bones[n].tail) }))
+// the skin: each body vertex's four strongest bones
+const wj = JSON.parse(readFileSync(join(dir, 'default_weights.mhw'), 'utf8')).weights
+const per = Array.from({ length: keep.length }, () => [])
+for (const [bn, list] of Object.entries(wj)) { const bi = order.indexOf(bn); if (bi < 0) continue; for (const [vi, w] of list) if (map[vi] >= 0) per[map[vi]].push([bi, w]) }
+const sb = new Uint8Array(keep.length * 4), sw = new Uint8Array(keep.length * 4)
+per.forEach((l, i) => { l.sort((a, b) => b[1] - a[1]); const top = l.slice(0, 4), sum = top.reduce((a, b) => a + b[1], 0) || 1; top.forEach(([b, w], k) => { sb[i * 4 + k] = b; sw[i * 4 + k] = Math.round(w / sum * 255) }) })
+
 const blend = TARGETS.slice(3)
-const header = { nv: keep.length, ni: idx.length, height: maxY - minY, targets: blend.map(n => ({ name: n, n: targets[n].size })), license: 'MakeHuman base mesh and targets, CC0 1.0 (makehumancommunity/makehuman)' }
+const header = { nv: keep.length, ni: idx.length, height: maxY - minY, targets: blend.map(n => ({ name: n, n: targets[n].size })), bones, license: 'MakeHuman base mesh and targets, CC0 1.0 (makehumancommunity/makehuman)' }
 const parts = [Buffer.from(pos.buffer), Buffer.from(new Uint32Array(idx).buffer)]
 for (const n of blend) {
   const ent = [...targets[n]]
@@ -64,8 +91,9 @@ for (const n of blend) {
   ent.forEach(([, d], k) => { for (let c = 0; c < 3; c++) dd[k * 3 + c] = Math.max(-32767, Math.min(32767, Math.round(d[c] * 10000))) })
   parts.push(Buffer.from(ii.buffer), Buffer.from(dd.buffer))
 }
+parts.push(Buffer.from(sb.buffer), Buffer.from(sw.buffer))
 const hj = Buffer.from(JSON.stringify(header))
 const pad = (4 - ((4 + hj.length) % 4)) % 4
 const out = Buffer.concat([Buffer.from(new Uint32Array([hj.length + pad]).buffer), hj, Buffer.alloc(pad, 32), ...parts])
 writeFileSync('frontend/public/fitsmarter/human.bin', out)
-console.log(JSON.stringify({ nv: header.nv, tris: idx.length / 3, height: header.height.toFixed(3), bytes: out.length }))
+console.log(JSON.stringify({ bones: bones.length, nv: header.nv, tris: idx.length / 3, height: header.height.toFixed(3), bytes: out.length }))
