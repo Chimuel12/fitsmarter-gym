@@ -110,23 +110,31 @@ const LOOK = /* glsl */`
 const RELIEF = /* glsl */`
 {
   vec3 q = vFsPos; float ax = abs(q.x);
-  if (q.z > -0.06 && q.y > 0.95 && q.y < 1.34) {
-    float halfW = 0.064 - (1.21 - q.y) * 0.05;
-    float col = smoothstep(0.0, 0.03, halfW - ax) * smoothstep(0.0, 0.016, ax - 0.002);
-    float g1 = smoothstep(0.0, 0.022, abs(q.y - 1.212)), g2 = smoothstep(0.0, 0.02, abs(q.y - 1.14));
-    float g3 = smoothstep(0.0, 0.02, abs(q.y - 1.07)), g4 = smoothstep(0.0, 0.03, abs(q.y - 0.99));
-    float absH = col * g1 * g2 * g3 * g4 * smoothstep(0.96, 0.99, q.y) * (1.0 - smoothstep(1.21, 1.23, q.y));
-    float pecLine = 1.0 - smoothstep(0.0, 0.016, abs(q.y - (1.245 + 0.9 * q.x * q.x)));
-    float obl = 1.0 - smoothstep(0.0, 0.012, abs(ax - (0.085 + 0.06 * (1.18 - q.y))));
-    fsH += (absH * 0.008 - pecLine * 0.005 * step(ax, 0.17) - obl * 0.0035 * step(q.y, 1.2) * step(0.98, q.y)) * uFsDef;
-  }
-  // Greek-statue anatomy: Apollo's belt (the V from the hips to the groin) and the serratus fingers
-  if (q.z > -0.02 && q.y > 0.84 && q.y < 1.26) {
-    float belt = 1.0 - smoothstep(0.0, 0.014, abs(ax - 0.03 - (q.y - 0.86) * 0.9));
-    belt *= smoothstep(0.86, 0.9, q.y) * (1.0 - smoothstep(0.98, 1.01, q.y));
+  // Soft, rounded anatomy drawn as relief, like a fit physique: a six-pack split by the midline and
+  // three tendons, the edges of the rectus, full pecs with a curved lower edge and a line between
+  // them, the deltoid's border, the serratus fingers and Apollo's belt. uFsDef: how deep the cuts are.
+  if (q.z > -0.03 && q.y > 0.84 && q.y < 1.42) {
+    float halfW = 0.072 - (1.2 - q.y) * 0.05;
+    float inCol = smoothstep(0.0, 0.03, halfW - ax);
+    float absY = smoothstep(0.93, 0.98, q.y) * (1.0 - smoothstep(1.215, 1.245, q.y));
+    float alba = exp(-ax * ax / 0.00003);
+    float yy = q.y - ax * 0.1;
+    float ten = exp(-pow((yy - 1.2) / 0.008, 2.0)) + exp(-pow((yy - 1.132) / 0.008, 2.0)) + 0.8 * exp(-pow((yy - 1.065) / 0.008, 2.0));
+    float semi = exp(-pow((ax - halfW) / 0.009, 2.0));
+    float absH = absY * (inCol * 0.005 - alba * 0.0045 - ten * inCol * 0.0045 - semi * 0.004);
+    // the pecs: a full dome over a curved lower edge that rises to the armpit
+    float edge = 1.232 + 1.4 * ax * ax;
+    float side = smoothstep(0.004, 0.02, ax) * (1.0 - smoothstep(0.16, 0.2, ax));
+    float pec = side * smoothstep(edge - 0.004, edge + 0.03, q.y) * (1.0 - smoothstep(1.36, 1.41, q.y));
+    float pecEdge = exp(-pow((q.y - edge) / 0.009, 2.0)) * (1.0 - smoothstep(0.15, 0.19, ax));
+    float sternum = alba * smoothstep(1.22, 1.25, q.y) * (1.0 - smoothstep(1.36, 1.4, q.y));
+    float deltoid = exp(-pow((ax - 0.165 - (1.4 - q.y) * 0.3) / 0.008, 2.0)) * smoothstep(1.24, 1.28, q.y) * (1.0 - smoothstep(1.4, 1.42, q.y));
+    float pecH = pec * 0.006 - pecEdge * 0.006 - sternum * 0.004 - deltoid * 0.004;
+    // Apollo's belt and the serratus
+    float belt = exp(-pow((ax - 0.03 - (q.y - 0.86) * 0.9) / 0.01, 2.0)) * smoothstep(0.86, 0.9, q.y) * (1.0 - smoothstep(0.98, 1.01, q.y));
     float serr = smoothstep(0.55, 0.95, sin((q.y + ax * 0.7) * 120.0)) * smoothstep(0.115, 0.13, ax) * (1.0 - smoothstep(0.155, 0.17, ax))
                * smoothstep(1.1, 1.13, q.y) * (1.0 - smoothstep(1.22, 1.25, q.y));
-    fsH += (-belt * 0.006 + serr * 0.0025) * uFsDef;
+    fsH += (absH + pecH - belt * 0.005 + serr * 0.002) * uFsDef;
   }
   vec3 sx = dFdx(-vViewPosition), sy = dFdy(-vViewPosition);
   vec3 r1 = cross(sy, normal), r2 = cross(normal, sx);
@@ -155,6 +163,6 @@ export function withPattern(mat) {
       .replace('#include <normal_fragment_maps>', '#include <normal_fragment_maps>\n' + RELIEF)
       .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\ntotalEmissiveRadiance += fsGlow;')
   }
-  mat.customProgramCacheKey = () => 'fs-body-v5'
+  mat.customProgramCacheKey = () => 'fs-body-v6'
   return mat
 }

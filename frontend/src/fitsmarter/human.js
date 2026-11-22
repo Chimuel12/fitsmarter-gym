@@ -53,10 +53,59 @@ const TAP = {
 }
 
 /**
- * The body's positions for a state: overall { muscle 0–1, lean 0–1 } and per-muscle growth
- * levels { slug: 0–1 }. Returns a fresh Float32Array.
+ * The physique for a level, like the four bodies of a fitness progression:
+ *   levels 1–2   lean and slim, a narrow frame, little muscle
+ *   levels 3–4   athletic: low fat, visible abs, light muscle
+ *   levels 5–7   well proportioned: a full chest, round shoulders, clear six-pack
+ *   levels 8–10  strong and defined: big chest, shoulders and arms, deep cuts
+ * t is the tier index (0 iron … 9 olympian, fractions blend). Returns { muscle, lean, extra }.
  */
-export function shape(h, { muscle = 0.3, lean = 0.3, local = {}, statue = 0 }) {
+const STAGES = [[0, -0.2, 0.7, -0.5], [2.5, 0.3, 0.8, 0.1], [5, 0.7, 0.75, 0.7], [8, 0.95, 0.65, 1.25], [9, 1.0, 0.6, 1.45]]
+export function stage(t) {
+  t = Math.max(0, Math.min(9, t))
+  let k = 0; while (k < STAGES.length - 2 && t > STAGES[k + 1][0]) k++
+  const [a, b] = [STAGES[k], STAGES[k + 1]], f = (t - a[0]) / (b[0] - a[0]), e = f * f * (3 - 2 * f)
+  const mix = i => a[i] + (b[i] - a[i]) * e
+  return { muscle: mix(1), lean: mix(2), extra: mix(3) }
+}
+
+const INFLATE = [
+  ['torso-muscle-pectoral-incr', 0.016], ['torso-muscle-dorsi-incr', 0.01],
+  ['l-upperarm-shoulder-muscle-incr', 0.014], ['r-upperarm-shoulder-muscle-incr', 0.014],
+  ['l-upperarm-muscle-incr', 0.013], ['r-upperarm-muscle-incr', 0.013],
+  ['l-lowerarm-muscle-incr', 0.006], ['r-lowerarm-muscle-incr', 0.006],
+  ['l-upperleg-muscle-incr', 0.015], ['r-upperleg-muscle-incr', 0.015],
+  ['l-lowerleg-muscle-incr', 0.008], ['r-lowerleg-muscle-incr', 0.008],
+]
+// the rest shape's normals and each muscle's weight, computed once per body
+function restData(h) {
+  if (h._rest) return h._rest
+  const n = new Float32Array(h.nv * 3), b = h.base, ix = h.index
+  for (let f = 0; f < ix.length; f += 3) {
+    const a = ix[f] * 3, c = ix[f + 1] * 3, e = ix[f + 2] * 3
+    const ux = b[c] - b[a], uy = b[c + 1] - b[a + 1], uz = b[c + 2] - b[a + 2], vx = b[e] - b[a], vy = b[e + 1] - b[a + 1], vz = b[e + 2] - b[a + 2]
+    const nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx
+    for (const v of [a, c, e]) { n[v] += nx; n[v + 1] += ny; n[v + 2] += nz }
+  }
+  for (let i = 0; i < n.length; i += 3) { const l = Math.hypot(n[i], n[i + 1], n[i + 2]) || 1; n[i] /= l; n[i + 1] /= l; n[i + 2] /= l }
+  // weight: how far the muscle's own target moves each point, so the swelling peaks in the belly of
+  // the muscle and fades smoothly to nothing at its edges (a round muscle, not a slab)
+  const rw = {}
+  for (const [name] of INFLATE) {
+    const t = h.targets[name]; if (!t) continue
+    const w = new Float32Array(h.nv); let max = 0
+    for (let k = 0; k < t.idx.length; k++) { const m = Math.hypot(t.d[k * 3], t.d[k * 3 + 1], t.d[k * 3 + 2]); w[t.idx[k]] = m; if (m > max) max = m }
+    for (let i = 0; i < h.nv; i++) w[i] = Math.pow(w[i] / (max || 1), 0.75)
+    rw[name] = w
+  }
+  return (h._rest = { n, rw })
+}
+
+/**
+ * The body's positions: the overall physique { muscle 0–1, lean 0–1, extra 0–1 } and, per muscle,
+ * how much bigger or smaller it is than the rest ({ slug: -1…1 }). Returns a fresh Float32Array.
+ */
+export function shape(h, { muscle = 0.3, lean = 0.5, extra = 0, local = {} }) {
   const p = new Float32Array(h.base)
   const add = (name, w) => {
     const t = h.targets[name]
@@ -64,26 +113,56 @@ export function shape(h, { muscle = 0.3, lean = 0.3, local = {}, statue = 0 }) {
     const s = w / 10000
     for (let k = 0; k < t.idx.length; k++) { const i = t.idx[k] * 3; p[i] += t.d[k * 3] * s; p[i + 1] += t.d[k * 3 + 1] * s; p[i + 2] += t.d[k * 3 + 2] * s }
   }
-  // the whole body: towards max muscle, and from average to low fat as definition grows
+  // the whole body: towards max muscle, and from average to low fat
   add('universal-male-young-maxmuscle-averageweight', muscle * (1 - lean))
   add('universal-male-young-maxmuscle-minweight', muscle * lean)
   add('universal-male-young-averagemuscle-minweight', (1 - muscle) * lean)
-  // each region: the strongest of the muscles that drive it
+  // each region: the overall build plus how far its own muscle is ahead or behind
   const w = {}
-  for (const [slug, v] of Object.entries(local)) for (const t of REGION[slug] || []) w[t] = Math.max(w[t] || 0, v)
-  // the deltoid target turns square past about 0.7: round shoulders, like a statue's
-  for (const [t, v] of Object.entries(w)) add(t, /shoulder/.test(t) ? Math.min(v, 0.7) : v)
-  // Greek-statue proportions, from the first level and more with each one: a full chest, round
-  // shoulders, a broad back and thick thighs, never a shapeless body
-  add('torso-muscle-pectoral-incr', 0.3 + statue * 0.5)
-  add('torso-muscle-dorsi-incr', 0.25 + statue * 0.4)
+  for (const [slug, v] of Object.entries(local)) for (const t of REGION[slug] || []) w[t] = Math.max(w[t] ?? -9, v)
+  const g = extra / 1.45   // -0.1 at the first level … 1 at the top
+  const part = (t, k, cap = 0.9) => add(t, Math.max(-0.4, Math.min(cap, (extra + (w[t] || 0)) * k)))
+  part('torso-muscle-pectoral-incr', 0.6)
+  part('torso-muscle-dorsi-incr', 0.5)
   for (const s of ['l', 'r']) {
-    add(s + '-upperleg-muscle-incr', 0.2 + statue * 0.3)
-    add(s + '-lowerleg-muscle-incr', 0.15 + statue * 0.25)
+    part(s + '-upperarm-shoulder-muscle-incr', 0.4, 0.6)
+    part(s + '-upperarm-muscle-incr', 0.5)
+    part(s + '-lowerarm-muscle-incr', 0.5)
+    part(s + '-upperleg-muscle-incr', 0.45)
+    part(s + '-lowerleg-muscle-incr', 0.4)
   }
-  add('torso-vshape-incr', statue * 0.15)
-  // the V: broad back and shoulders together
-  add('torso-vshape-incr', Math.min(1, ((local.lats || 0) + (local['side-delts'] || 0)) / 2) * 0.5)
+  add('stomach-pregnant-decr', 0.3 + lean * 0.5)
+  // A classical statue's proportions at the top (like Polykleitos' Doryphoros): wide shoulders, a
+  // deep chest, a strong neck, thick forearms and upper arms, solid thighs and calves, a firm waist.
+  // Every level below has the same body scaled down towards a slim beginner; each muscle also
+  // follows its own level (its offset from the rest).
+  const m = (name, v) => add(`measure-${name}-${v >= 0 ? 'incr' : 'decr'}`, Math.min(1.2, Math.abs(v)))
+  const o = slug => local[slug] || 0
+  m('shoulder-dist', g * 0.7 + o('side-delts') * 0.4)
+  m('bust-circ', g * 0.75 + o('chest') * 0.5)
+  m('frontchest-dist', g * 0.35)
+  m('underbust-circ', g * 0.45 + o('lats') * 0.3)
+  m('neck-circ', g * 0.55 + o('trapezius') * 0.3)
+  m('upperarm-circ', g * 0.9 + (o('biceps') + o('triceps')) * 0.3)
+  m('wrist-circ', g * 0.45)
+  m('thigh-circ', g * 0.75 + (o('quadriceps') + o('hamstring')) * 0.3)
+  m('calf-circ', g * 0.8 + o('calves') * 0.5)
+  m('waist-circ', g * 0.1)
+  m('hips-circ', g * 0.15 + o('gluteal') * 0.3)
+  // the forearms: MakeHuman has no circumference for them, so the forearm is scaled across
+  const fa = Math.max(-0.3, Math.min(1, g * 0.8 + o('forearm') * 0.5))
+  if (fa > 0) for (const s of ['l', 'r']) { add(s + '-lowerarm-scale-horiz-incr', fa * 0.7); add(s + '-lowerarm-scale-depth-incr', fa * 0.9) }
+  else for (const s of ['l', 'r']) add(s + '-lowerarm-muscle-decr', -fa)
+  // a little roundness in the belly of each muscle, fading to its edges
+  const { n, rw } = restData(h)
+  for (const [t, mm] of INFLATE) {
+    const r = rw[t]; if (!r) continue
+    const d = Math.max(-0.3, Math.min(1.6, extra + (w[t] || 0))) * mm * 0.45
+    if (!d) continue
+    for (let i = 0; i < h.nv; i++) { const a = r[i]; if (a > 0.01) { const k = d * a; p[i * 3] += n[i * 3] * k; p[i * 3 + 1] += n[i * 3 + 1] * k; p[i * 3 + 2] += n[i * 3 + 2] * k } }
+  }
+  // the V of a trained back and shoulders
+  add('torso-vshape-incr', Math.max(0, Math.min(0.4, extra * 0.2 + (o('lats') + o('side-delts')) * 0.15)))
   pose(p, h)
   return p
 }

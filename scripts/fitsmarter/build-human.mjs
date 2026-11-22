@@ -18,6 +18,11 @@ const TARGETS = [
   'l-upperarm-shoulder-muscle-incr', 'r-upperarm-shoulder-muscle-incr', 'l-upperleg-muscle-incr', 'r-upperleg-muscle-incr',
   'l-lowerleg-muscle-incr', 'r-lowerleg-muscle-incr', 'torso-muscle-dorsi-incr', 'torso-muscle-pectoral-incr',
   'torso-vshape-incr', 'stomach-pregnant-decr',
+  // measurements, to give the strongest level a classical statue's proportions and scale them down
+  ...['bust-circ', 'calf-circ', 'hips-circ', 'neck-circ', 'shoulder-dist', 'thigh-circ', 'upperarm-circ', 'waist-circ',
+    'wrist-circ', 'underbust-circ', 'frontchest-dist'].flatMap(m => [`measure-${m}-incr`, `measure-${m}-decr`]),
+  ...['l', 'r'].flatMap(s => ['lowerarm-scale-horiz-incr', 'lowerarm-scale-depth-incr', 'upperarm-muscle-decr', 'lowerarm-muscle-decr',
+    'upperleg-muscle-decr', 'lowerleg-muscle-decr'].map(t => `${s}-${t}`)),
 ]
 const UNIT = 0.1   // MakeHuman works in decimetres
 

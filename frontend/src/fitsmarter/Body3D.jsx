@@ -9,7 +9,7 @@ import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 're
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
-import { loadHuman, shape, regionMap, regionWeights, geometryOf } from './human.js'
+import { loadHuman, stage, shape, regionMap, regionWeights, geometryOf } from './human.js'
 import { withPattern, clock as patternClock, definition, scan, scanColor } from './patterns.js'
 import { tierIndex, TIERS } from './tiers.js'
 import { muscleScale } from './skins.js'
@@ -163,15 +163,17 @@ const Body3D = forwardRef(function Body3D({ map, skin = 'none', level = -1, onMu
         // the whole body from the overall level; each region from its muscle's own level
         const lv = Math.max(-1, state.level), all = (lv + 1) / 10
         const local = {}
-        // each part grows with its own muscle's level only (past MakeHuman's maximum at the top);
-        // the whole body moves only a little, with the average of all of them
-        for (const [slug, r] of Object.entries(state.map || {})) local[slug] = (tierIndex(r.tier.id) + 1) / 10 * 1.5
+        // the physique from the average level of the main muscles (fitness-progression looks);
+        // each muscle a little bigger or smaller than that by its own level
         const MAJOR = ['chest', 'lats', 'side-delts', 'biceps', 'triceps', 'forearm', 'quadriceps', 'hamstring', 'gluteal', 'calves', 'abs']
-        const avg = MAJOR.reduce((a, m) => a + (local[m] || 0) / 1.5, 0) / MAJOR.length
-        const absLv = state.map?.abs ? (tierIndex(state.map.abs.tier.id) + 1) / 10 : 0
-        const pos = shape(human, { muscle: 0.25 + avg * 0.85, lean: Math.min(1, 0.25 + absLv * 0.8), local, statue: avg })
+        const ti = m => (state.map?.[m] ? tierIndex(state.map[m].tier.id) : -1)
+        const avgT = MAJOR.reduce((a, m) => a + Math.max(0, ti(m)), 0) / MAJOR.length
+        const body0 = stage(avgT)
+        for (const slug of Object.keys(state.map || {})) local[slug] = stage(Math.max(0, ti(slug))).extra - body0.extra
+        const absLv = state.map?.abs ? (ti('abs') + 1) / 10 : 0
+        const pos = shape(human, { ...body0, local })
         // carved abs follow the abs' own level, never less than the body's overall
-        definition.value = absLv * 1.2
+        definition.value = 0.25 + absLv * 0.95
         const g = body.geometry
         const prev = this.shown
         this.shown = { skin: state.skin, level: lv }
