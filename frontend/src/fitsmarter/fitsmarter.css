@@ -206,3 +206,12 @@
 /* Olympian: a museum glow, warm and soft, behind the marble */
 .fs-stage.fx-marble .fs-aura{background:radial-gradient(closest-side,rgba(255,244,220,.55),rgba(214,196,160,.2) 55%,transparent)}
 .fs-stage.fx-marble .fs-particles i{background:#FFE9B8;box-shadow:0 0 8px #FFD98A}
+
+/* The scene behind the body, per overall level (like the references) */
+.fs-stage{border-radius:22px;transition:background .8s}
+.fs-stage.skin-diamond{background:radial-gradient(60% 45% at 8% 45%,rgba(255,30,70,.38),transparent 70%),radial-gradient(60% 45% at 92% 40%,rgba(40,120,255,.4),transparent 70%)}
+.fs-stage.skin-emerald{background:radial-gradient(70% 50% at 50% 45%,rgba(20,180,80,.28),transparent 70%),linear-gradient(180deg,rgba(0,20,8,.6),transparent)}
+.fs-stage.skin-champion{background:radial-gradient(70% 50% at 50% 40%,rgba(140,90,255,.3),transparent 70%),radial-gradient(50% 40% at 80% 10%,rgba(200,190,120,.16),transparent 70%)}
+.fs-stage.skin-gold{background:radial-gradient(65% 48% at 50% 45%,rgba(255,200,90,.28),transparent 70%)}
+.fs-stage.skin-ruby{background:radial-gradient(65% 48% at 50% 45%,rgba(255,40,70,.26),transparent 70%)}
+.fs-stage.skin-olympian{background:radial-gradient(65% 48% at 50% 40%,rgba(255,240,210,.22),transparent 70%)}

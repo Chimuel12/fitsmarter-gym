@@ -161,6 +161,8 @@ export function geometryOf(h) {
   g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(h.base), 3))
   g.setAttribute('color', new THREE.BufferAttribute(new Float32Array(h.nv * 3).fill(1), 3))
   g.setAttribute('aMR', new THREE.BufferAttribute(new Float32Array(h.nv * 2).fill(0.5), 2))
+  g.setAttribute('aTier', new THREE.BufferAttribute(new Float32Array(h.nv).fill(-1), 1))
+  g.setAttribute('aSeam', new THREE.BufferAttribute(new Float32Array(h.nv), 1))
   g.setIndex(new THREE.BufferAttribute(h.index, 1))
   g.computeVertexNormals()
   return g

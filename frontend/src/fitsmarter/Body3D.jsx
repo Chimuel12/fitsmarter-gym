@@ -14,32 +14,20 @@ import { withPattern, clock as patternClock, definition } from './patterns.js'
 import { tierIndex, TIERS } from './tiers.js'
 import { muscleScale } from './skins.js'
 
-/* ---------- materials: one look per level ---------- */
-const LOOK = {
-  untrained: () => new THREE.MeshStandardMaterial({ color: 0x343b4b, roughness: 0.75, metalness: 0.15 }),
-  none: () => new THREE.MeshStandardMaterial({ color: 0x5b6474, roughness: 0.7, metalness: 0.2 }),
-  iron: () => new THREE.MeshStandardMaterial({ color: 0x7b828c, roughness: 0.62, metalness: 0.65 }),
-  bronze: () => new THREE.MeshStandardMaterial({ color: 0xc27a43, roughness: 0.3, metalness: 1, envMapIntensity: 1.5 }),
-  silver: () => new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.2, metalness: 1, envMapIntensity: 3.4 }),
-  gold: () => new THREE.MeshStandardMaterial({ color: 0xffc534, roughness: 0.16, metalness: 1, envMapIntensity: 1.4 }),
-  ruby: () => new THREE.MeshPhysicalMaterial({ color: 0xe0112b, roughness: 0.04, metalness: 0, transmission: 0.45, thickness: 0.4, ior: 1.77, clearcoat: 1, clearcoatRoughness: 0.02, attenuationColor: 0x8a0015, attenuationDistance: 0.25 }),
-  emerald: () => new THREE.MeshPhysicalMaterial({ color: 0x0e3d24, roughness: 0.5, metalness: 0.05, clearcoat: 0.35, clearcoatRoughness: 0.3, envMapIntensity: 0.35 }),
-  diamond: () => new THREE.MeshPhysicalMaterial({ color: 0xf4fdff, roughness: 0, metalness: 0, transmission: 1, thickness: 0.5, ior: 2.42, dispersion: 4, clearcoat: 1, clearcoatRoughness: 0, iridescence: 0.55, iridescenceIOR: 1.8, specularIntensity: 1 }),
-  champion: () => new THREE.MeshPhysicalMaterial({ color: 0x3a1f70, roughness: 0.55, metalness: 0.05, clearcoat: 0.3, clearcoatRoughness: 0.35, envMapIntensity: 0.4 }),
-  symmetric: () => new THREE.MeshPhysicalMaterial({ color: 0x8fb4ff, roughness: 0.08, metalness: 0.85, clearcoat: 1, iridescence: 1, iridescenceIOR: 2.2 }),
-  // Olympian: white marble, like a Greek statue: soft, a little waxy, faint veins (vertex colours)
-  olympian: () => new THREE.MeshPhysicalMaterial({ color: 0xf4efe6, roughness: 0.42, metalness: 0, sheen: 0.6, sheenRoughness: 0.5, sheenColor: 0xffffff, clearcoat: 0.25, clearcoatRoughness: 0.35, envMapIntensity: 0.9 }),
-}
-const look = id => withPattern((LOOK[id] || LOOK.none)(), id)
-
-/* ---------- colour: a hint of each muscle's own level on the skin ---------- */
-const hex = c => [((c >> 16) & 255) / 255, ((c >> 8) & 255) / 255, (c & 255) / 255]
-// Each level's own finish for a muscle: colour, metalness, roughness.
+/* ---------- one material: every point carries its level (patterns.js draws the look) ---------- */
+const bodyMaterial = () => withPattern(new THREE.MeshPhysicalMaterial({ color: 0xffffff, vertexColors: true, clearcoat: 0.25, clearcoatRoughness: 0.2, envMapIntensity: 1.1 }))
+// Each level's base colour, metalness and roughness (the patterns add the rest).
 const FINISH = {
-  iron: [0x7b828c, 0.7, 0.55], bronze: [0xc27a43, 1, 0.3], silver: [0xf2f5f9, 1, 0.12], gold: [0xffc534, 1, 0.16],
-  ruby: [0xd0102a, 0.25, 0.12], emerald: [0x17a35d, 0.25, 0.25], diamond: [0xe6f8ff, 0.35, 0.04], champion: [0x7b4fe0, 0.35, 0.28],
-  symmetric: [0x8fb4ff, 0.85, 0.1], olympian: [0xf4efe6, 0, 0.42],
+  none: [0x5b6474, 0.2, 0.6], iron: [0x6e757f, 0.75, 0.5], bronze: [0xc27a43, 1, 0.28], silver: [0xf2f5f9, 1, 0.12], gold: [0xffbf2a, 1, 0.12],
+  ruby: [0xa80d24, 0.3, 0.14], emerald: [0x0b2a18, 0.1, 0.45], diamond: [0xc9d2de, 1, 0.16], champion: [0x3a1f70, 0.05, 0.5],
+  symmetric: [0x7f9fff, 0.9, 0.1], olympian: [0xf4efe6, 0, 0.4],
 }
+// Rim lights in the level's colours, like the references (Diamond red and blue, Emerald green…).
+const RIM = {
+  diamond: [0xff2a4a, 0x2f7dff], emerald: [0x2dff6a, 0x0f8f4a], champion: [0xb07aff, 0x3fcfaa], gold: [0xffd27a, 0xff9a3c],
+  olympian: [0xfff1d6, 0xbfd4ff], ruby: [0xff3355, 0xff8866], symmetric: [0x7fb2ff, 0xd07fff],
+}
+const fin = id => { const v = FINISH[id] || FINISH.none; return { c: new THREE.Color(v[0]), m: v[1], r: v[2], t: id === 'none' ? -1 : tierIndex(id) } }
 
 /* ---------- sparkles for gemstone levels, a burst for the level-up ---------- */
 function starTexture() {
@@ -77,9 +65,10 @@ const Body3D = forwardRef(function Body3D({ map, skin = 'none', level = -1, onMu
     scene.add(new THREE.HemisphereLight(0xbfd4ff, 0x1a1f2e, 0.6))
     const key = new THREE.DirectionalLight(0xffffff, 2.2); key.position.set(1.5, 2.5, 2.2); scene.add(key)
     const rim = new THREE.DirectionalLight(0x7fb2ff, 1.6); rim.position.set(-2, 1.5, -2); scene.add(rim)
+    const rim2 = new THREE.DirectionalLight(0x7fb2ff, 0); rim2.position.set(2.2, 1.2, -1.6); scene.add(rim2)
     const glint = [new THREE.PointLight(0xffffff, 0, 4), new THREE.PointLight(0xffffff, 0, 4)]; glint.forEach(l => scene.add(l))
     const fig = new THREE.Group(); scene.add(fig)
-    const body = new THREE.Mesh(new THREE.BufferGeometry(), look('none')); body.material.vertexColors = true; fig.add(body)
+    const body = new THREE.Mesh(new THREE.BufferGeometry(), bodyMaterial()); fig.add(body)
     let human = null, regionOf = () => null, regions = [], pending = null
     loadHuman().then(h => {
       human = h; regionOf = regionMap(h); regions = regionWeights(h)
@@ -126,7 +115,7 @@ const Body3D = forwardRef(function Body3D({ map, skin = 'none', level = -1, onMu
         twinkle.material.opacity = 0.55 + Math.sin(t * 6) * 0.35
         twinkle.rotation.y = t * 0.15
       }
-      if (s.skin === 'symmetric') body.material.color?.setHSL((t * 0.08) % 1, 0.7, 0.72)
+      if (s.skin === 'symmetric') body.material.color?.setHSL((t * 0.08) % 1, 0.5, 0.85)
       if (party) {
         const k = (performance.now() - party.t0) / 3000
         if (k >= 1) { fig.scale.setScalar(1); burst.visible = false; controls.autoRotateSpeed = 0.7; key.intensity = 2.2; party.done?.(); party = null }
@@ -147,11 +136,9 @@ const Body3D = forwardRef(function Body3D({ map, skin = 'none', level = -1, onMu
       state: {},
       apply(state) {
         this.state = state
-        const old = body.material, mat = look(state.skin)
-        // the overall level's colour and finish everywhere; each muscle's own on top (vertex attributes)
-        const skinCol = mat.color.clone(), skinMR = [mat.metalness ?? 0.5, mat.roughness ?? 0.5]
-        mat.color.set(0xffffff); mat.vertexColors = true
-        body.material = mat; old.dispose?.()
+        const rc = RIM[state.skin]
+        rim.color.set(rc ? rc[0] : 0x7fb2ff); rim.intensity = rc ? 3.2 : 1.6
+        rim2.color.set(rc ? rc[1] : 0x7fb2ff); rim2.intensity = rc ? 3.2 : 0
         if (!human) { pending = state; return }
         // the whole body from the overall level; each region from its muscle's own level
         const lv = Math.max(-1, state.level), all = (lv + 1) / 10
@@ -170,32 +157,37 @@ const Body3D = forwardRef(function Body3D({ map, skin = 'none', level = -1, onMu
         g.computeVertexNormals(); g.computeBoundingSphere()
         const marble = state.skin === 'olympian'
         const col = g.getAttribute('color'), c = col.array, mrA = g.getAttribute('aMR'), mr = mrA.array
-        // the finish each region shows, from its muscle's level (front or back of the limb)
-        const fin = regions.map(r => {
-          const front = r.tap(1), back = r.tap(-1)
-          const f = m => { const t = state.map?.[m]; if (!t) return null; const v = FINISH[t.tier.id]; return v && { c: new THREE.Color(v[0]), m: v[1], r: v[2] } }
-          return { front: f(front), back: f(back) }
+        const tA = g.getAttribute('aTier'), ta = tA.array, sA = g.getAttribute('aSeam'), sa = sA.array
+        const skin = fin(state.skin)
+        // each region's look from its muscle's level (front or back of the limb); untrained: the overall look
+        const looks = regions.map(r => {
+          const f = m => (state.map?.[m] ? fin(state.map[m].tier.id) : null)
+          return { front: f(r.tap(1)), back: f(r.tap(-1)) }
         })
-        const tmp = new THREE.Color()
+        const ss = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t) }
         for (let v = 0; v < human.nv; v++) {
-          let wr = 0, rr = 0, gg = 0, bb = 0, mm = 0, ro = 0
-          const zr = human.base[v * 3 + 2]
-          for (let k = 0; k < regions.length; k++) {
-            const w = regions[k].w[v]; if (!w) continue
-            const f = zr - regions[k].zMid >= 0 ? fin[k].front || fin[k].back : fin[k].back || fin[k].front
-            if (!f) continue
-            wr += w; rr += f.c.r * w; gg += f.c.g * w; bb += f.c.b * w; mm += f.m * w; ro += f.r * w
-          }
-          const a = Math.min(1, wr)
-          if (wr > 0) { rr /= wr; gg /= wr; bb /= wr; mm /= wr; ro /= wr }
-          tmp.setRGB(skinCol.r + (rr - skinCol.r) * a, skinCol.g + (gg - skinCol.g) * a, skinCol.b + (bb - skinCol.b) * a)
-          c[v * 3] = tmp.r; c[v * 3 + 1] = tmp.g; c[v * 3 + 2] = tmp.b
-          mr[v * 2] = skinMR[0] + (mm - skinMR[0]) * a; mr[v * 2 + 1] = skinMR[1] + (ro - skinMR[1]) * a
+          // the two regions this point belongs to most
+          let k1 = -1, w1 = 0, w2 = 0
+          for (let k = 0; k < regions.length; k++) { const w = regions[k].w[v]; if (w > w1) { w2 = w1; w1 = w; k1 = k } else if (w > w2) w2 = w }
+          const zr = k1 >= 0 ? human.base[v * 3 + 2] - regions[k1].zMid : 0
+          const L = k1 >= 0 ? looks[k1] : null
+          const own = L ? (zr >= 0 ? L.front || L.back : L.back || L.front) || skin : skin
+          // inside the muscle its own look, outside the overall one; the change happens at the groove
+          const a = ss(0.4, 0.6, w1)
+          c[v * 3] = skin.c.r + (own.c.r - skin.c.r) * a; c[v * 3 + 1] = skin.c.g + (own.c.g - skin.c.g) * a; c[v * 3 + 2] = skin.c.b + (own.c.b - skin.c.b) * a
+          mr[v * 2] = skin.m + (own.m - skin.m) * a; mr[v * 2 + 1] = skin.r + (own.r - skin.r) * a
+          ta[v] = a > 0.5 ? own.t : skin.t
+          // grooves: muscle edge, between two muscles, and between the front and back of a limb
+          const edge = 1 - Math.min(1, Math.abs(w1 - 0.5) / 0.09)
+          const between = w2 > 0.35 ? 1 - Math.min(1, (w1 - w2) / 0.1) : 0
+          const fb = L && L.front && L.back && L.front.t !== L.back.t && w1 > 0.5 ? 1 - Math.min(1, Math.abs(zr) / 0.014) : 0
+          sa[v] = Math.max(edge * (w1 > 0.2 ? 1 : 0), between, fb)
         }
-        mrA.needsUpdate = true
+        mrA.needsUpdate = true; tA.needsUpdate = true; sA.needsUpdate = true
         col.needsUpdate = true
-        twinkle.visible = state.level >= 6 && !marble
-        glint.forEach(l => { l.intensity = state.level >= 6 && !marble ? 6 : 0 })
+        twinkle.visible = ['diamond', 'symmetric'].includes(state.skin)
+        // the circling white lights make Diamond sparkle; on other looks they would wash the colour out
+        glint.forEach(l => { l.intensity = state.skin === 'diamond' ? 6 : 0 })
       },
       celebrate() { return new Promise(done => { controls.autoRotate = true; burst.visible = true; party = { t0: performance.now(), done } }) },
       // the picture to share: always from the front, whatever angle you left it at
