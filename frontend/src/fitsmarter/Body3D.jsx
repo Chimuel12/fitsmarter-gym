@@ -10,7 +10,7 @@ import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
 import { loadHuman, shape, regionMap, regionWeights, geometryOf } from './human.js'
-import { withPattern, clock as patternClock, definition } from './patterns.js'
+import { withPattern, clock as patternClock, definition, scan, scanColor } from './patterns.js'
 import { tierIndex, TIERS } from './tiers.js'
 import { muscleScale } from './skins.js'
 
@@ -102,6 +102,10 @@ const Body3D = forwardRef(function Body3D({ map, skin = 'none', level = -1, onMu
     const size = () => { const w = el.clientWidth, h = el.clientHeight; if (!w || !h) return; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix() }
     const ro = new ResizeObserver(size); ro.observe(el); size()
     let party = null, raf = 0
+    // the change of level: the body morphs from the old shape to the new one while a band of the new
+    // level's light sweeps over it (up when you climb, down when you drop) with a burst of sparks
+    let trans = null
+    const GLOW = [0x7fa6e6, 0xff9959, 0xd9e6ff, 0xffc74d, 0xff334d, 0x4dff73, 0xbfebff, 0xb873ff, 0x8cbfff, 0xffdb8c]
     const clock = new THREE.Clock()
     const frame = () => {
       raf = requestAnimationFrame(frame)
@@ -128,6 +132,20 @@ const Body3D = forwardRef(function Body3D({ map, skin = 'none', level = -1, onMu
           p.needsUpdate = true; burst.material.opacity = 1 - k
         }
       }
+      if (trans) {
+        const k = Math.min(1, (performance.now() - trans.t0) / 2200), e = k * k * (3 - 2 * k)
+        const g = body.geometry, pa = g.getAttribute('position'), arr = pa.array
+        for (let i = 0; i < arr.length; i++) arr[i] = trans.from[i] + (trans.to[i] - trans.from[i]) * e
+        pa.needsUpdate = true; g.computeVertexNormals()
+        scan.value = trans.up ? -0.1 + e * 2.0 : 1.9 - e * 2.0
+        fig.scale.setScalar(1 + Math.sin(Math.PI * k) * (trans.up ? 0.045 : -0.03))
+        if (!party) {
+          const p = burst.geometry.attributes.position
+          for (let i = 0; i < p.count; i++) { const a = i * 2.399, r = 0.25 + k * 0.9 * (0.5 + (i % 7) / 10); p.setXYZ(i, Math.cos(a + k * 3) * r, scan.value + Math.sin(i * 1.7) * 0.05, Math.sin(a + k * 3) * r) }
+          p.needsUpdate = true; burst.material.opacity = Math.sin(Math.PI * k)
+        }
+        if (k >= 1) { scan.value = -10; fig.scale.setScalar(1); if (!party) { burst.visible = false; burst.material.color.set(0xffffff) } g.computeBoundingSphere(); trans = null }
+      }
       controls.update()
       renderer.render(scene, camera)
     }
@@ -151,12 +169,22 @@ const Body3D = forwardRef(function Body3D({ map, skin = 'none', level = -1, onMu
         const MAJOR = ['chest', 'lats', 'side-delts', 'biceps', 'triceps', 'forearm', 'quadriceps', 'hamstring', 'gluteal', 'calves', 'abs']
         const avg = MAJOR.reduce((a, m) => a + (local[m] || 0) / 1.5, 0) / MAJOR.length
         const absLv = state.map?.abs ? (tierIndex(state.map.abs.tier.id) + 1) / 10 : 0
-        const pos = shape(human, { muscle: 0.15 + avg * 0.7, lean: Math.min(1, 0.15 + absLv * 0.85), local })
+        const pos = shape(human, { muscle: 0.25 + avg * 0.85, lean: Math.min(1, 0.25 + absLv * 0.8), local, statue: avg })
         // carved abs follow the abs' own level, never less than the body's overall
         definition.value = absLv * 1.2
         const g = body.geometry
-        g.getAttribute('position').array.set(pos); g.getAttribute('position').needsUpdate = true
-        g.computeVertexNormals(); g.computeBoundingSphere()
+        const prev = this.shown
+        this.shown = { skin: state.skin, level: lv }
+        if (prev && prev.skin !== state.skin && !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+          trans = { t0: performance.now(), from: Float32Array.from(g.getAttribute('position').array), to: pos, up: lv >= prev.level }
+          scanColor.value.set(GLOW[Math.max(0, lv)]); if (!trans.up) scanColor.value.multiplyScalar(0.6)
+          if (!party) { burst.material.color.set(GLOW[Math.max(0, lv)]); burst.visible = true }
+        } else if (trans) {
+          trans.to = pos   // the same level drawn again mid-change: keep morphing, towards the latest shape
+        } else {
+          g.getAttribute('position').array.set(pos); g.getAttribute('position').needsUpdate = true
+          g.computeVertexNormals(); g.computeBoundingSphere()
+        }
         const marble = state.skin === 'olympian'
         const col = g.getAttribute('color'), c = col.array, mrA = g.getAttribute('aMR'), mr = mrA.array
         const tA = g.getAttribute('aTier'), ta = tA.array, sA = g.getAttribute('aSeam'), sa = sA.array

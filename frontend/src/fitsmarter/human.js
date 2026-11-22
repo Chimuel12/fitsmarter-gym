@@ -56,7 +56,7 @@ const TAP = {
  * The body's positions for a state: overall { muscle 0–1, lean 0–1 } and per-muscle growth
  * levels { slug: 0–1 }. Returns a fresh Float32Array.
  */
-export function shape(h, { muscle = 0.3, lean = 0.3, local = {} }) {
+export function shape(h, { muscle = 0.3, lean = 0.3, local = {}, statue = 0 }) {
   const p = new Float32Array(h.base)
   const add = (name, w) => {
     const t = h.targets[name]
@@ -71,7 +71,17 @@ export function shape(h, { muscle = 0.3, lean = 0.3, local = {} }) {
   // each region: the strongest of the muscles that drive it
   const w = {}
   for (const [slug, v] of Object.entries(local)) for (const t of REGION[slug] || []) w[t] = Math.max(w[t] || 0, v)
-  for (const [t, v] of Object.entries(w)) add(t, v)
+  // the deltoid target turns square past about 0.7: round shoulders, like a statue's
+  for (const [t, v] of Object.entries(w)) add(t, /shoulder/.test(t) ? Math.min(v, 0.7) : v)
+  // Greek-statue proportions, from the first level and more with each one: a full chest, round
+  // shoulders, a broad back and thick thighs, never a shapeless body
+  add('torso-muscle-pectoral-incr', 0.3 + statue * 0.5)
+  add('torso-muscle-dorsi-incr', 0.25 + statue * 0.4)
+  for (const s of ['l', 'r']) {
+    add(s + '-upperleg-muscle-incr', 0.2 + statue * 0.3)
+    add(s + '-lowerleg-muscle-incr', 0.15 + statue * 0.25)
+  }
+  add('torso-vshape-incr', statue * 0.15)
   // the V: broad back and shoulders together
   add('torso-vshape-incr', Math.min(1, ((local.lats || 0) + (local['side-delts'] || 0)) / 2) * 0.5)
   pose(p, h)
@@ -83,6 +93,13 @@ export function shape(h, { muscle = 0.3, lean = 0.3, local = {} }) {
    weights. Angles in radians about the body's axes (x across, y up, z forward), for the left side;
    the right side mirrors them. */
 const POSE = {
+  // contrapposto, like a Greek statue: weight on the right leg, the left one relaxed, hips and
+  // shoulders tilted against each other, head turned a little. Names with .L/.R are not mirrored.
+  'root': [['z', -0.1]],
+  'spine05': [['z', 0.04]], 'spine04': [['z', 0.05]], 'spine02': [['z', 0.06]], 'spine01': [['y', 0.08]],
+  'neck02': [['y', 0.32], ['x', 0.1]],
+  'upperleg01.R': [['z', 0.1]], 'lowerleg02.R': [['z', -0.02]],
+  'upperleg01.L': [['z', 0.13], ['x', -0.24]], 'lowerleg01.L': [['x', 0.5]], 'foot.L': [['x', -0.2], ['y', 0.25]],
   'upperarm01': [['z', -0.58]],                   // arms down to the sides
   'lowerarm01': [['x', 0.42], ['z', 0.3]],        // forearm down beside the thigh, elbow softly bent
   'lowerarm02': [['twist', -1.2]],                // turn the forearm about itself: palm to the thigh, thumb forward
@@ -99,7 +116,7 @@ function boneMatrices(h) {
   if (mats) return mats
   const out = [], q = new THREE.Quaternion(), r = new THREE.Quaternion()
   for (const b of h.bones) {
-    const side = b.name.endsWith('.R') ? -1 : 1, key = b.name.replace(/\.[LR]$/, '')
+    const own1 = POSE[b.name], side = own1 ? 1 : b.name.endsWith('.R') ? -1 : 1, key = own1 ? b.name : b.name.replace(/\.[LR]$/, '')
     q.identity()
     // 'twist' turns about the bone's own length (head to tail), like turning a forearm
     const own = new THREE.Vector3(b.tail[0] - b.head[0], b.tail[1] - b.head[1], b.tail[2] - b.head[2]).normalize()

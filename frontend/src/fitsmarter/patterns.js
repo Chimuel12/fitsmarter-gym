@@ -10,6 +10,10 @@ import * as THREE from 'three'
 export const clock = { value: 0 }
 // How carved the abs and chest look, 0 to 1, from the abs' level.
 export const definition = { value: 0 }
+// The change of level: a band of light sweeping over the body (height in metres, far away when idle)
+// and its colour, the new level's.
+export const scan = { value: -10 }
+export const scanColor = { value: new THREE.Color(1, 1, 1) }
 
 const COMMON = /* glsl */`
 varying vec3 vFsPos;
@@ -18,6 +22,8 @@ varying float vTier;
 varying float vSeam;
 uniform float uFsTime;
 uniform float uFsDef;
+uniform float uFsScan;
+uniform vec3 uFsScanCol;
 float fsHash(vec3 p){ p = fract(p * 0.3183099 + 0.1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }
 float fsNoise(vec3 x){ vec3 i = floor(x), f = fract(x); f = f * f * (3.0 - 2.0 * f);
   return mix(mix(mix(fsHash(i), fsHash(i + vec3(1,0,0)), f.x), mix(fsHash(i + vec3(0,1,0)), fsHash(i + vec3(1,1,0)), f.x), f.y),
@@ -86,11 +92,18 @@ const LOOK = /* glsl */`
   }
   // the groove between two zones, and its line of light (brighter for higher levels)
   float seam = smoothstep(0.25, 0.9, vSeam);
+  // under the chest the pec's own curved edge (RELIEF) draws the line, not a straight band
+  seam *= 1.0 - 0.8 * step(0.0, fsP.z) * smoothstep(1.13, 1.17, fsP.y) * (1.0 - smoothstep(1.29, 1.33, fsP.y)) * (1.0 - smoothstep(0.17, 0.21, abs(fsP.x)));
   fsH -= seam * 0.0045 * (0.6 + 0.4 * uFsDef);
   // only the very bottom of the groove lights up: a thin line of the level's colour
   float line = smoothstep(0.86, 0.99, vSeam);
   fsGlow += fsGlowCol(vTier) * line * (0.18 + 0.07 * max(vTier, 0.0)) * (0.8 + 0.2 * sin(uFsTime * 2.5 + fsP.y * 20.0));
   diffuseColor.rgb *= 1.0 - seam * 0.35;
+  // the change of level: a bright ring and a fading trail of light lines behind it
+  float sd = fsP.y - uFsScan;
+  float ring = exp(-sd * sd / 0.0012);
+  float trail = exp(-abs(sd) / 0.18) * smoothstep(0.6, 0.95, sin(fsP.y * 260.0));
+  fsGlow += uFsScanCol * (ring * 4.0 + trail * 1.1);
 `
 
 // Muscle definition as relief on the front of the torso: six abs, the chest line, the obliques.
@@ -107,6 +120,14 @@ const RELIEF = /* glsl */`
     float obl = 1.0 - smoothstep(0.0, 0.012, abs(ax - (0.085 + 0.06 * (1.18 - q.y))));
     fsH += (absH * 0.008 - pecLine * 0.005 * step(ax, 0.17) - obl * 0.0035 * step(q.y, 1.2) * step(0.98, q.y)) * uFsDef;
   }
+  // Greek-statue anatomy: Apollo's belt (the V from the hips to the groin) and the serratus fingers
+  if (q.z > -0.02 && q.y > 0.84 && q.y < 1.26) {
+    float belt = 1.0 - smoothstep(0.0, 0.014, abs(ax - 0.03 - (q.y - 0.86) * 0.9));
+    belt *= smoothstep(0.86, 0.9, q.y) * (1.0 - smoothstep(0.98, 1.01, q.y));
+    float serr = smoothstep(0.55, 0.95, sin((q.y + ax * 0.7) * 120.0)) * smoothstep(0.115, 0.13, ax) * (1.0 - smoothstep(0.155, 0.17, ax))
+               * smoothstep(1.1, 1.13, q.y) * (1.0 - smoothstep(1.22, 1.25, q.y));
+    fsH += (-belt * 0.006 + serr * 0.0025) * uFsDef;
+  }
   vec3 sx = dFdx(-vViewPosition), sy = dFdy(-vViewPosition);
   vec3 r1 = cross(sy, normal), r2 = cross(normal, sx);
   float det = dot(sx, r1);
@@ -120,6 +141,8 @@ export function withPattern(mat) {
   mat.onBeforeCompile = shader => {
     shader.uniforms.uFsTime = clock
     shader.uniforms.uFsDef = definition
+    shader.uniforms.uFsScan = scan
+    shader.uniforms.uFsScanCol = scanColor
     shader.vertexShader = shader.vertexShader
       .replace('#include <common>', '#include <common>\nvarying vec3 vFsPos;\nattribute vec2 aMR;\nvarying vec2 vMR;\nattribute float aTier;\nvarying float vTier;\nattribute float aSeam;\nvarying float vSeam;')
       .replace('#include <begin_vertex>', '#include <begin_vertex>\nvMR = aMR; vTier = aTier; vSeam = aSeam;')
@@ -132,6 +155,6 @@ export function withPattern(mat) {
       .replace('#include <normal_fragment_maps>', '#include <normal_fragment_maps>\n' + RELIEF)
       .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\ntotalEmissiveRadiance += fsGlow;')
   }
-  mat.customProgramCacheKey = () => 'fs-body-v3'
+  mat.customProgramCacheKey = () => 'fs-body-v5'
   return mat
 }
