@@ -239,7 +239,9 @@ self.addEventListener('pushsubscriptionchange', e => {
     if (!key) return
     const sub = e.newSubscription || await self.registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key })
     const deviceId = await caches.open(DEVICE_CACHE).then(c => c.match(DEVICE_URL)).then(r => r ? r.text() : undefined).catch(() => undefined)
-    await fetch('api/push/subscribe', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ subscription: sub.toJSON(), deviceId }) }).catch(() => {})
+    // FitSmarter's browser-only build keeps its push server elsewhere (fitsmarter/push-relay.js)
+    const base = await caches.open(DEVICE_CACHE).then(c => c.match('/opengym-push-url')).then(r => r ? r.text() : '').catch(() => '')
+    await fetch(base ? base + '/api/push/subscribe' : 'api/push/subscribe', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ subscription: sub.toJSON(), deviceId }) }).catch(() => {})
   })())
 })
 

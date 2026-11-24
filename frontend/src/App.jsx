@@ -395,6 +395,7 @@ function Shell() {
   // FitSmarter: Google Drive sync (fitsmarter/drive.js), once the profile is loaded.
   useEffect(() => { if (STANDALONE && ready) import('./fitsmarter/drive.js').then(m => m.startDriveSync()).catch(() => {}) }, [ready])
   // FitSmarter: after a workout, a note with the muscles that moved up or down (fitsmarter/progress.js).
+  useEffect(() => { if (STANDALONE && ready) import('./fitsmarter/push-relay.js').then(m => m.watchReminders(useStore)).catch(() => {}) }, [ready])
   useEffect(() => { if (STANDALONE && ready) import('./fitsmarter/progress.js').then(m => m.watchFinishes({ useStore, useUI, navigate: p => { location.hash = '#' + p }, t })).catch(() => {}) }, [ready])
   if (!ready && !authed) return (
     <div id="app">

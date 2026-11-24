@@ -84,7 +84,7 @@ export const onRoot = (page, ctx) => pageVisible(page, ctx) && !(page === 'zepp'
 export function pageVisible(page, ctx) {
   // A page of a module that is off (ctx.mod answers isOn for this profile; absent: all on).
   if (PAGES[page]?.mod && ctx.mod && !ctx.mod(PAGES[page].mod)) return false
-  if (page === 'reminders') return !!(ctx.user || ctx.mobile)
+  if (page === 'reminders') return !!(ctx.user || ctx.mobile || ctx.relay)   // relay: FitSmarter's push server
   if (page === 'coach') return !!ctx.mobile && !ctx.offline
   // The phone app's network log: there only (a browser has its own developer tools for that).
   if (page === 'network') return !!ctx.mobile
@@ -226,7 +226,7 @@ export const SEARCH = [
   { page: 'voice', title: 'Before the last set', icon: 'bell', tint: 'var(--orange)', kw: 'moment last set final lines clip recording' },
   { page: 'voice', title: 'New record', icon: 'bell', tint: 'var(--orange)', kw: 'moment record pr personal best lines clip recording' },
   // Reminders
-  { page: 'reminders', title: PUSH, icon: 'bell', tint: 'var(--red)', kw: 'push notification alerts', when: c => !c.mobile && !!c.user && c.pushOK },
+  { page: 'reminders', title: PUSH, icon: 'bell', tint: 'var(--red)', kw: 'push notification alerts', when: c => !c.mobile && !!(c.user || c.relay) && c.pushOK },
   { page: 'reminders', title: 'Workout day reminder', icon: 'calendar', tint: 'var(--orange)', kw: 'reminder notification remind', when: remind, via: PUSH },
   { page: 'reminders', title: 'Reminder time', icon: 'clock', tint: 'var(--purple)', kw: 'reminder time clock hour when', when: c => remind(c) && c.reminderOn, via: PUSH },
   { page: 'reminders', title: 'Nudge me when I skip a planned workout', icon: 'bell', tint: 'var(--red)', kw: 'nudge skip missed motivation', when: c => remind(c) && c.reminderOn, via: PUSH },

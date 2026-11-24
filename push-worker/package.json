@@ -1,0 +1,1 @@
+{ "name": "fitsmarter-push", "private": true, "type": "module", "scripts": { "test": "node --test test/*.test.js" } }

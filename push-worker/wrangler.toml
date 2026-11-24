@@ -1,0 +1,19 @@
+# FitSmarter push server: `npx wrangler deploy` from this folder (see README.md).
+name = "fitsmarter-push"
+main = "src/index.js"
+compatibility_date = "2026-11-01"
+
+[vars]
+ALLOWED_ORIGINS = "https://chimuel12.github.io,http://localhost:5199"
+VAPID_SUBJECT = "https://github.com/Chimuel12/fitsmarter-gym"
+# The public half of the VAPID key pair; the private half is the secret VAPID_PRIVATE.
+VAPID_PUBLIC = "BCLurFGT3Nok7SUXkpsQR1yUfUvMhta2j1AZ88WMWksxZRskbew96oP-pr7oAVdqlj36khQEOyV7vel8NNvsmbQ"
+
+[[durable_objects.bindings]]
+name = "HUB"
+class_name = "Hub"
+
+# SQLite-backed, the kind the Workers Free plan includes
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Hub"]

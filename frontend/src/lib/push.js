@@ -1,6 +1,9 @@
 // Web Push subscribe/unsubscribe — requires a signed-in profile (subscriptions are stored
 // server-side per user, same as everything else under /api).
 import { api } from './api.js'
+import { PUSH_URL, relay } from '../fitsmarter/push-relay.js'
+// FitSmarter: the browser-only build sends these to its push server instead (fitsmarter/push-relay.js)
+export const pushApi = (path, opts) => (PUSH_URL ? relay(path, opts) : api(path, opts))
 
 // main.jsx registers the service worker on https only, so on any other origin there is no
 // worker and `navigator.serviceWorker.ready` never settles — the toggle looked usable and hung.
@@ -45,6 +48,8 @@ async function shareDeviceId() {
   const id = deviceId()
   if (!id) return
   try { await (await caches.open(DEVICE_CACHE)).put(DEVICE_URL, new Response(id)) } catch { /* no Cache API: the worker sends none, as before */ }
+  // FitSmarter: where the worker re-registers a rotated subscription, when it is not next to the app
+  if (PUSH_URL) try { await (await caches.open(DEVICE_CACHE)).put('/opengym-push-url', new Response(PUSH_URL)) } catch { /* as above */ }
 }
 
 // The worker is registered at boot; on https it is there within a moment, but a promise that
@@ -54,7 +59,7 @@ const readyWorker = (ms = 8000) => Promise.race([
   new Promise((_, reject) => setTimeout(() => reject(new Error('Service worker not ready')), ms))
 ])
 
-const post = sub => api('/api/push/subscribe', { method: 'POST', body: JSON.stringify({ subscription: sub.toJSON(), deviceId: deviceId() }) })
+const post = sub => pushApi('/api/push/subscribe', { method: 'POST', body: JSON.stringify({ subscription: sub.toJSON(), deviceId: deviceId() }) })
 
 /* Hands the server this browser's subscription. A 409 means the server has this endpoint filed
    under another account with keys other than the ones sent, and moves it only for a caller that
@@ -81,7 +86,7 @@ export async function enablePush() {
   const perm = await Notification.requestPermission()
   if (perm !== 'granted') throw new Error('Notifications permission was not granted')
   const reg = await readyWorker()
-  const { key } = await api('/api/push/public-key')
+  const { key } = await pushApi('/api/push/public-key')
   const subscription = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(key) })
   await shareDeviceId()
   await register(reg, key, subscription)
@@ -92,8 +97,9 @@ export async function disablePush() {
   const reg = await readyWorker()
   const sub = await reg.pushManager.getSubscription()
   if (!sub) return
+  const auth = sub.toJSON?.()?.keys?.auth
   await sub.unsubscribe()
-  await api('/api/push/unsubscribe', { method: 'POST', body: JSON.stringify({ endpoint: sub.endpoint }) }).catch(() => {})
+  await pushApi('/api/push/unsubscribe', { method: 'POST', body: JSON.stringify({ endpoint: sub.endpoint, auth }) }).catch(() => {})
 }
 
 /* Brings the server's copy of this browser's subscription back in line with the browser's.
@@ -116,7 +122,7 @@ export async function syncPushSubscription() {
   let sub = await reg.pushManager.getSubscription()
   if (!sub) return false
   await shareDeviceId()
-  const { key } = await api('/api/push/public-key')
+  const { key } = await pushApi('/api/push/public-key')
   const mine = sub.options?.applicationServerKey
   if (mine && key && bytesToUrlBase64(mine) !== key.replace(/=+$/, '')) {
     await sub.unsubscribe().catch(() => {})
@@ -131,10 +137,10 @@ export async function syncPushSubscription() {
   // a rotated subscription with no id to hand, and the check used to stop at "subscribed". An api
   // from before this answer sends no deviceId at all (not null): it cannot say, and a re-send it
   // never reports back would be a db.json write on every boot.
-  const { subscribed, deviceId: storedAs } = await api('/api/push/status?endpoint=' + encodeURIComponent(sub.endpoint))
+  const { subscribed, deviceId: storedAs } = await pushApi('/api/push/status?endpoint=' + encodeURIComponent(sub.endpoint))
   const id = deviceId()
   if (!subscribed || (id && storedAs !== undefined && storedAs !== id)) await register(reg, key, sub)
   return true
 }
 
-export const sendTestPush = () => api('/api/push/test', { method: 'POST', body: '{}' })
+export const sendTestPush = () => pushApi('/api/push/test', { method: 'POST', body: '{}' })
