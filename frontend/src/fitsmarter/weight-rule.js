@@ -44,6 +44,30 @@ export function perSideColumn(col, base, unit, t) {
   }
 }
 
+/** How to enter the weight, said plainly: { head, detail } (null: nothing to say). The head is
+ *  the rule in a few words, the detail a worked example. */
+export function ruleParts(rule, unit, t) {
+  switch (rule.kind) {
+    case 'side': return rule.base > 0
+      ? { head: t('Enter the weight of the plates on ONE side'), detail: t('The {0} {1} bar is added for you. 20 on each side → type 20 ({2} {1} in total).', rule.base, unit, 40 + rule.base) }
+      : { head: t('Enter the weight of the plates on ONE side'), detail: t('20 on each side → type 20.') }
+    case 'bell': return { head: t('Enter the weight of ONE dumbbell'), detail: t('20 in each hand → type 20.') }
+    case 'bellTotal': return { head: t('Enter both dumbbells together'), detail: t('20 in each hand → type 40.') }
+    case 'stack': return { head: t('Enter the number on the machine'), detail: t('The weight stack where the pin is, or the display. Machine with plates: add up all the plates on it.') }
+    case 'loaded': return { head: t('Enter all the plates you loaded'), detail: t('Both sides together, without the sled itself.') }
+    case 'object': return { head: t('Enter the weight of what you held'), detail: t('The ball, plate or bag.') }
+    case 'assist': return { head: t('Enter the help (counterweight)'), detail: t('Less help means stronger.') }
+    case 'bw': return { head: t('Log your reps'), detail: t('Add weight only if you wear a belt or vest.') }
+    default: return null
+  }
+}
+
+/** The total a per-side entry puts on the bar, for the line under the hint. */
+export function sideTotalText(rule, total, unit, t) {
+  if (rule?.kind !== 'side' || !(Number(total) > 0)) return null
+  return t('Last entered: {0} per side + {1} {2} bar = {3} {2} on the bar', r2((Number(total) - rule.base) / 2), rule.base, unit, r2(Number(total)))
+}
+
 /** One plain sentence under the set header saying how to enter the weight (null: nothing to say). */
 export function ruleText(rule, unit, t) {
   switch (rule.kind) {

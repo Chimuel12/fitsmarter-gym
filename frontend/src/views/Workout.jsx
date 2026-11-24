@@ -49,7 +49,8 @@ import LiveHeartRate from '../components/LiveHeartRate.jsx'
 import LiveCard from '../components/LiveCard.jsx'
 import Icon from '../components/Icon.jsx'
 import { Button, Check, NumberField } from '../components/ui.jsx'
-import { weightRule, perSideColumn, ruleText } from '../fitsmarter/weight-rule.js'
+import { weightRule, perSideColumn, ruleParts, sideTotalText } from '../fitsmarter/weight-rule.js'
+import { STANDALONE } from '../lib/demo.js'
 import { defaultIncrement, weightIncrement, stepWeight } from '../lib/progression.js'
 import { progressionGuidance } from '../lib/progression-copy.js'
 import { rpeAs } from '../lib/programmes.js'
@@ -1016,7 +1017,8 @@ function ExerciseBlock({ entryIdx, compact, listed, dense, editing, onToggle, on
         ? <button type="button" className="hd-swap" onClick={switchCardioBy} aria-label={byDist ? t('Log speed instead') : t('Log distance instead')}
           title={byDist ? t('Log speed instead') : t('Log distance instead')}>{col2.hd}<Icon name="swap" /></button>
         : col2.hd}</span>}{col3 && <span className={col3.eff ? 'eff-sp' : 'r-sp inc-sp'}>{col3.hd}</span>}{timed && <span className="ck-sp" />}<span className="ck-sp" /></div>
-      {rule && ruleText(rule, S.unit, t) && <p className="fs-rule">{ruleText(rule, S.unit, t)}</p>}
+      {rule && ruleParts(rule, S.unit, t) && (how => <div className="fs-rule fs-rule-card" role="note"><b>⚖️ {how.head}</b><span>{how.detail}</span>
+        {(line => line && <em>{line}</em>)(sideTotalText(rule, [...entry.sets].reverse().find(x => !isWarmupRow(x) && Number(x.w) > 0)?.w, S.unit, t))}</div>)(ruleParts(rule, S.unit, t))}
       <span id={optsId} className="vh">{t('Options: copy, remove')}</span>
       {entry.sets.map((s, i) => {
         const warm = isWarmupRow(s)
@@ -2382,6 +2384,14 @@ function ActiveWorkout() {
     const e = st.active?.entries?.[idx]
     const row = side ? e?.sets?.[i]?.sides?.[side] : e?.sets?.[i]
     if (editing || !row || row.done || modeAt(idx) !== 'reps') return toggle(idx, i, side, opts)
+    // FitSmarter: a set several levels above where you were asks first, in its own words, and
+    // stands in for the check below (fitsmarter/jump-check.js), so one question at a time.
+    if (STANDALONE && !opts?.jumpOk) {
+      import('../fitsmarter/JumpSheet.jsx')
+        .then(x => x.askJump(idx, i, () => toggle(idx, i, side, opts)) || checkedToggle(idx, i, side, { ...opts, jumpOk: true }))
+        .catch(() => checkedToggle(idx, i, side, { ...opts, jumpOk: true }))
+      return
+    }
     const last = lastEntryFor(st, e.id, e.rid)
     const odd = oddValues(row, bestsFor(st.workouts, e.id), {
       unit: st.unit, assisted: isAssisted(e.id), last: lastRowFor(last?.sets, e.sets, i, side),

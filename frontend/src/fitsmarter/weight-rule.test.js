@@ -41,3 +41,18 @@ describe('the weight to log matches the equipment', () => {
     expect(kinds.bell).toBe(CATALOGUE.filter(e => e.eq === 'dumbbell' || e.eq === 'kettlebell').length)
   })
 })
+
+describe('the hint card', async () => {
+  const { ruleParts, sideTotalText } = await import('./weight-rule.js')
+  const t = (s, ...a) => s.replace(/\{(\d)\}/g, (_, i) => a[i])
+  it('says per side for a barbell, with the bar and an example', () => {
+    const p = ruleParts({ kind: 'side', base: 20 }, 'kg', t)
+    expect(p.head).toBe('Enter the weight of the plates on ONE side')
+    expect(p.detail).toContain('20 kg bar is added')
+    expect(p.detail).toContain('60 kg in total')
+    expect(sideTotalText({ kind: 'side', base: 20 }, 100, 'kg', t)).toBe('Last entered: 40 per side + 20 kg bar = 100 kg on the bar')
+  })
+  it('says the number on the machine for a machine', () => {
+    expect(ruleParts({ kind: 'stack', base: 0 }, 'kg', t).head).toBe('Enter the number on the machine')
+  })
+})

@@ -244,3 +244,14 @@
 .fs-held{display:flex;flex-direction:column;gap:4px;margin:12px 0;padding:12px 14px;border-radius:14px;background:color-mix(in srgb,#F5A524 14%,transparent)}
 .fs-held b{color:#F5A524}
 .fs-mus.held{stroke:#F5A524;stroke-width:3;stroke-dasharray:7 6;stroke-opacity:.85}
+/* how to enter the weight (weight-rule.js ruleParts): a card you cannot miss above the sets */
+.fs-rule-card{display:flex;flex-direction:column;gap:3px;margin:4px 12px 10px;padding:10px 12px;border-radius:12px;font-size:13px;line-height:1.35;color:var(--text,#e8eaee);
+  background:color-mix(in srgb,var(--acc,#4C8DFF) 13%,transparent);border:1px solid color-mix(in srgb,var(--acc,#4C8DFF) 35%,transparent)}
+.fs-rule-card b{font-size:14px}
+.fs-rule-card span{color:var(--muted,#9aa0aa)}
+.fs-rule-card em{font-style:normal;font-weight:600;color:var(--acc,#4C8DFF)}
+/* "Diamond? Check the weight" (JumpSheet.jsx) */
+.fs-jump{text-align:center}
+.fs-jump-gems{display:flex;align-items:center;justify-content:center;gap:12px;margin:6px 0 10px;font-size:22px;opacity:.95}
+.fs-jump-logged{font-weight:700;padding:10px 12px;border-radius:12px;background:color-mix(in srgb,#F5A524 16%,transparent)}
+.fs-jump .fs-rule{display:flex;flex-direction:column;gap:2px;text-align:left;margin:8px 0 14px;font-size:13px}
