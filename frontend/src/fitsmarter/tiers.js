@@ -220,7 +220,7 @@ export function latestByExercise(S, prof) {
 /** Muscle → { pct, tier, ex, s, prim, at, trend, change, next } from each muscle's most recent session.
  *  The exercises that work it as a main mover decide; one that only assists counts when nothing
  *  else has trained it, at 60 %. Of two sessions, the later one; on the same day, the stronger. */
-export function muscleTiers(S, prof) {
+export function muscleTiers(S, prof, { cap = true } = {}) {
   const latest = latestByExercise(S, prof), out = {}
   for (const [id, b] of Object.entries(latest)) {
     for (const [m, wgt] of Object.entries(musclesOf(exerciseOf(id)) || {})) {
@@ -228,8 +228,47 @@ export function muscleTiers(S, prof) {
       const cur = out[m]
       const better = !cur || (prim && !cur.prim) || (prim === cur.prim && (b.at > cur.at || (b.at === cur.at && pct > cur.pct)))
       if (better) out[m] = { pct, tier: tierFor(pct), ex: id, s: b.s, prim, at: b.at, trend: b.trend, change: b.change, best: b.best, prev: b.prev,
+        bestPct: b.best ? percentileOf(id, b.best.v, prof) * (prim ? 1 : 0.6) : pct,
         next: planTarget(S, id) || overloadTarget(id, b, S.unit) }
     }
+  }
+  return cap ? balanceCap(out) : out
+}
+
+/* ---------- balance: no Diamond chest on Silver legs ---------- */
+// Strength is built by the whole body, not muscle by muscle: the big lifts load the legs, back and
+// trunk together, a weak link limits what the strong ones can show (a bench needs leg drive and a
+// stable back), and lifters who train for years end up within a couple of levels everywhere.
+// So a muscle can be at most GAP levels above the weakest trained region (push, pull, legs, core).
+// A region with nothing logged yet holds nothing back. Muscle memory: a region keeps credit for the
+// level it once reached, one below its record, because detrained muscle keeps its extra nuclei and
+// gets strength back far faster than the first time. The small muscles follow the cap but do not
+// set it. The real level stays in `raw`.
+export const GAP = 3
+export const REGIONS = {
+  push: ['chest', 'front-delts', 'triceps'],
+  pull: ['lats', 'upper-back', 'biceps'],
+  legs: ['quadriceps', 'hamstring', 'gluteal', 'calves'],
+  core: ['abs', 'obliques', 'lower-back'],
+}
+const lvl = pct => TIERS.indexOf(tierFor(pct))
+/** Each region's level: the mean of its trained muscles (record minus one counts), null if none. */
+export function regionLevels(map) {
+  return Object.fromEntries(Object.entries(REGIONS).map(([k, ms]) => {
+    const v = ms.filter(m => map[m]).map(m => { const r = map[m]; return Math.max(lvl(r.raw?.pct ?? r.pct), lvl(r.bestPct ?? r.pct) - 1) })
+    return [k, v.length ? Math.floor(v.reduce((a, b) => a + b, 0) / v.length) : null]
+  }))
+}
+/** The map with every muscle held to the weakest region + GAP; `capped` says by which region. */
+export function balanceCap(map) {
+  const trained = Object.entries(regionLevels(map)).filter(([, v]) => v !== null).sort((a, b) => a[1] - b[1])
+  if (trained.length < 2) return map   // one region alone has nothing to be out of balance with
+  const [weak, low] = trained[0]
+  const max = Math.min(TIERS.length - 1, low + GAP), out = {}
+  for (const [m, r] of Object.entries(map)) {
+    if (lvl(r.pct) <= max) { out[m] = r; continue }
+    const pct = 100 - TIERS[max].top
+    out[m] = { ...r, pct, tier: TIERS[max], raw: { pct: r.pct, tier: r.tier }, capped: { by: weak, at: TIERS[low], max: TIERS[max] } }
   }
   return out
 }

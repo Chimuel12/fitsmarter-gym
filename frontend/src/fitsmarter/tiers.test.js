@@ -39,8 +39,9 @@ describe('logged sets', () => {
   })
   it('lights the bench muscles and leaves the legs untrained', () => {
     const S = { unit: 'kg', workouts: [{ date: '2026-11-10', entries: [{ id: bench().id, sets: [{ w: 90, r: 10, done: true }] }] }] }
-    const map = muscleTiers(S, MAN)
+    const map = muscleTiers(S, MAN, { cap: false })
     expect(map.chest.tier.id).toBe('diamond')
+    expect(muscleTiers(S, MAN).chest.tier.id).toBe('diamond')   // nothing else trained yet: nothing holds it back
     expect(map.quadriceps).toBeUndefined()
     const o = overall(map)
     expect(o.trained).toBeGreaterThan(0)

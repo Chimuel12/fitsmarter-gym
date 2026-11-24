@@ -134,11 +134,11 @@
 .fs-particles i{position:absolute;bottom:-6px;left:calc(4% + var(--i) * 6.7%);width:5px;height:5px;border-radius:50%;background:var(--skin-a);box-shadow:0 0 8px var(--skin-a);opacity:0;animation:fs-float calc(5s + var(--i) * .37s) linear calc(var(--i) * -.61s) infinite}
 @keyframes fs-float{10%{opacity:.9}100%{transform:translateY(-420px) translateX(calc((var(--i) - 7) * 3px));opacity:0}}
 /* Symmetric: holographic skin and a halo */
-.fs-stage.fx-holo .fs-body .fs-skin{animation:fs-holo 6s linear infinite}
+.fs-stage.fx-holo .fs-body{animation:fs-holo 8s linear infinite;will-change:filter}
 @keyframes fs-holo{to{filter:hue-rotate(360deg)}}
 .fs-halo{position:absolute;z-index:2;left:50%;top:-2%;width:26%;aspect-ratio:3/1;transform:translateX(-50%);border-radius:50%;border:2.5px solid #BFD4FF;box-shadow:0 0 12px #7FB2FF,inset 0 0 8px #7FB2FF;animation:fs-halo 3s ease-in-out infinite}
 @keyframes fs-halo{50%{transform:translateX(-50%) translateY(-3px)}}
-@media (prefers-reduced-motion:reduce){.fs-aura,.fs-particles i,.fs-figure:after,.fs-body .fs-skin,.fs-halo{animation:none!important}}
+@media (prefers-reduced-motion:reduce){.fs-aura,.fs-particles i,.fs-figure:after,.fs-body,.fs-body .fs-skin,.fs-halo{animation:none!important}}
 /* next skin card and the skins sheet */
 .fs-nextskin{display:flex;align-items:center;gap:12px;width:100%;margin:6px 0 14px;padding:12px 14px;border:0;border-radius:16px;background:rgba(255,255,255,.06);color:inherit;text-align:left;cursor:pointer;font:inherit}
 .fs-nextskin span:nth-child(2){flex:1;display:flex;flex-direction:column;gap:2px}
@@ -163,10 +163,6 @@
 .fs-remind-t input{background:var(--fill-3,#2a2f38);border:0;border-radius:10px;padding:8px 10px;color:inherit;font:inherit}
 
 /* Body: what changed since you last looked */
-.fs-body .fs-mus.anim-up{animation:fs-up 1.4s ease-in-out 3}
-.fs-body .fs-mus.anim-down{animation:fs-down 1.4s ease-in-out 3}
-@keyframes fs-up{40%{filter:drop-shadow(0 0 10px #30d158) drop-shadow(0 0 3px #fff) brightness(1.35)}}
-@keyframes fs-down{40%{filter:drop-shadow(0 0 10px #ff453a) brightness(.75) saturate(.6)}}
 .fs-delta{position:absolute;z-index:3;left:50%;top:8px;transform:translateX(-50%);width:min(92%,320px);display:flex;flex-direction:column;gap:4px;padding:10px 12px;border-radius:16px;background:rgba(12,16,28,.88);backdrop-filter:blur(10px);box-shadow:0 10px 30px #0008;animation:fs-drop .5s cubic-bezier(.2,1.4,.4,1);cursor:pointer}
 .fs-delta div{display:flex;align-items:center;gap:8px;font-size:13px}
 .fs-delta i{font-style:normal;font-weight:800;width:14px}
@@ -199,9 +195,6 @@
 .fs-sug button.on{color:var(--acc);font-weight:700}
 
 /* Body in 3D: as wide as the screen, most of its height */
-.fs-3d{position:relative;z-index:1;width:100%;height:min(66vh,620px);min-height:360px;touch-action:none;cursor:grab}
-.fs-3d canvas{display:block;width:100%!important;height:100%!important}
-.fs-stage:has(.fs-3d){padding:70px 0 18px}
 .fs-sharebtn{position:absolute;z-index:3;right:4%;bottom:12px;border:0;border-radius:999px;padding:9px 16px;background:rgba(255,255,255,.12);color:#fff;font:inherit;font-weight:700;font-size:14px;backdrop-filter:blur(8px);cursor:pointer}
 /* Olympian: a museum glow, warm and soft, behind the marble */
 .fs-stage.fx-marble .fs-aura{background:radial-gradient(closest-side,rgba(255,244,220,.55),rgba(214,196,160,.2) 55%,transparent)}
@@ -221,3 +214,33 @@
 .fs-tiers button[aria-pressed="true"] small{color:#fff}
 .fs-peekbar{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:8px 4px 0;font-size:12px;color:#AFC0E0}
 .fs-peekbar button{border:0;border-radius:999px;padding:6px 12px;background:rgba(255,255,255,.1);color:#fff;font:inherit;font-weight:700;font-size:12px;cursor:pointer;white-space:nowrap}
+
+/* Body: the special effect when something changes (Hub.jsx fx) */
+.fs-fx{position:absolute;inset:0;z-index:4;pointer-events:none;overflow:hidden;border-radius:20px}
+.fs-fx-wave{position:absolute;left:-10%;right:-10%;height:28%;mix-blend-mode:screen}
+.fs-fx.up .fs-fx-wave{bottom:-30%;background:linear-gradient(to top,transparent,rgba(70,255,140,.55) 45%,rgba(255,255,255,.85) 52%,rgba(70,255,140,.4) 60%,transparent);animation:fs-wave-up 1.5s cubic-bezier(.3,.6,.3,1) forwards}
+.fs-fx.down .fs-fx-wave{top:-30%;background:linear-gradient(to bottom,transparent,rgba(255,60,60,.5) 45%,rgba(255,180,180,.7) 52%,rgba(255,60,60,.35) 60%,transparent);animation:fs-wave-down 1.4s cubic-bezier(.3,.6,.3,1) forwards}
+@keyframes fs-wave-up{to{bottom:110%}}
+@keyframes fs-wave-down{to{top:110%}}
+.fs-fx i{position:absolute;left:var(--x);width:6px;height:6px;border-radius:50%;opacity:0}
+.fs-fx.up i{bottom:6%;background:#B6FFCF;box-shadow:0 0 10px #46FF8C,0 0 3px #fff;animation:fs-spark-up 1.8s ease-out calc(var(--i) * .045s) forwards}
+.fs-fx.down i{top:4%;width:5px;height:9px;border-radius:1px;background:#FF8A80;box-shadow:0 0 8px #FF3B30;animation:fs-shard-down 1.6s ease-in calc(var(--i) * .04s) forwards}
+@keyframes fs-spark-up{0%{opacity:0;transform:translateY(0) scale(.4)}15%{opacity:1}100%{opacity:0;transform:translateY(-420px) scale(1.2)}}
+@keyframes fs-shard-down{0%{opacity:0;transform:translateY(0) rotate(0)}15%{opacity:1}100%{opacity:0;transform:translateY(440px) rotate(260deg)}}
+.fs-fx b{position:absolute;left:50%;top:20%;font-size:44px;line-height:1;transform:translate(-50%,-50%);opacity:0;animation:fs-sign 1.6s ease-out .15s forwards}
+.fs-fx.up b{color:#46FF8C;text-shadow:0 0 24px #46FF8C,0 0 4px #fff}
+.fs-fx.down b{color:#FF453A;text-shadow:0 0 24px #FF453A}
+@keyframes fs-sign{0%{opacity:0;transform:translate(-50%,-50%) scale(.4)}25%{opacity:.95;transform:translate(-50%,-50%) scale(1.1)}60%{opacity:.8;transform:translate(-50%,-50%) scale(1)}100%{opacity:0;transform:translate(-50%,-80%) scale(1)}}
+.fs-stage.fx-now-up .fs-turn{animation:fs-pop .8s cubic-bezier(.2,1.6,.4,1)}
+.fs-stage.fx-now-down .fs-turn{animation:fs-shake .55s ease-in-out}
+@keyframes fs-pop{35%{transform:scale(1.05)}}
+@keyframes fs-shake{15%,55%{transform:translateX(-7px)}35%,75%{transform:translateX(7px)}}
+.fs-body .fs-mus.anim-up{animation:fs-mus-up 1.2s ease-out 2}
+.fs-body .fs-mus.anim-down{animation:fs-mus-down 1s ease-in-out 2}
+@keyframes fs-mus-up{30%{scale:1.08;filter:drop-shadow(0 0 10px #46FF8C) drop-shadow(0 0 3px #fff) brightness(1.4)}}
+@keyframes fs-mus-down{30%{scale:.95;filter:drop-shadow(0 0 10px #FF453A) brightness(.6) saturate(.4)}60%{translate:2px 0}}
+@media (prefers-reduced-motion:reduce){.fs-fx{display:none}.fs-stage.fx-now-up .fs-turn,.fs-stage.fx-now-down .fs-turn,.fs-body .fs-mus.anim-up,.fs-body .fs-mus.anim-down{animation:none}}
+/* balance: a muscle held below its real level (tiers.js balanceCap) */
+.fs-held{display:flex;flex-direction:column;gap:4px;margin:12px 0;padding:12px 14px;border-radius:14px;background:color-mix(in srgb,#F5A524 14%,transparent)}
+.fs-held b{color:#F5A524}
+.fs-mus.held{stroke:#F5A524;stroke-width:3;stroke-dasharray:7 6;stroke-opacity:.85}
