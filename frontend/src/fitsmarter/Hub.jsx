@@ -1,6 +1,7 @@
 // FitSmarter body hub: every muscle in the tier of its best exercise, growing with the tier,
 // plus the levels explainer and how to log weights. Part of this AGPL fork.
 import { shareImage } from '../lib/share-image.js'
+import { MOBILE } from '../lib/mobile.js'
 import Media from '../components/Media.jsx'
 import { loadKindFor, baseWeightFor } from '../lib/plates.js'
 import { aboutYouSheet } from '../components/StrengthLevel.jsx'
@@ -151,23 +152,80 @@ export function skinsSheet(level) {
 }
 
 const SEEN_KEY = 'fs_skin_seen'
-/** The picture to share: the body as it is now on a story-sized card, with the level. */
-async function bodyPicture(tier) {
+// One of the bodies on screen as a stand-alone SVG: every path keeps the fill, stroke and size it
+// shows (read off the page, since the stylesheet does not travel), with the level materials'
+// <defs> copied in, so it draws on a canvas exactly as you see it.
+function bodySvg(face) {
+  const src = document.querySelector(`.fs-face.${face} svg.fs-body`)
+  if (!src) return null
+  const out = src.cloneNode(true), a = src.querySelectorAll('path'), b = out.querySelectorAll('path')
+  a.forEach((p, i) => {
+    const cs = getComputedStyle(p), q = b[i]
+    q.removeAttribute('class')
+    q.setAttribute('style', [`fill:${cs.fill}`, `fill-opacity:${cs.fillOpacity}`, `stroke:${cs.stroke}`, `stroke-width:${cs.strokeWidth}`,
+      `opacity:${cs.opacity}`, p.style.transform ? `transform:${p.style.transform};transform-box:fill-box;transform-origin:center` : ''].filter(Boolean).join(';'))
+  })
+  out.querySelectorAll('title').forEach(x => x.remove())
+  const defs = [...document.querySelectorAll('svg.fs-defs defs')].map(d => d.innerHTML).join('')
+  out.insertAdjacentHTML('afterbegin', `<defs>${defs}</defs>`)
+  out.setAttribute('xmlns', 'http://www.w3.org/2000/svg')
+  const [, , w, h] = (src.getAttribute('viewBox') || '0 0 727 1280').split(/\s+/).map(Number)
+  out.setAttribute('width', w); out.setAttribute('height', h)
+  return { xml: new XMLSerializer().serializeToString(out), ratio: w / h }
+}
+const loadSvg = ({ xml }) => new Promise((ok, no) => { const i = new Image(); i.onload = () => ok(i); i.onerror = no; i.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(xml) })
+
+/** The picture to share: both sides of the body as they are now, on a story-sized card. */
+export async function bodyPicture(tier, ov, map) {
   const W = 1080, H = 1920, c = document.createElement('canvas'); c.width = W; c.height = H
   const g = c.getContext('2d'), stops = SKINS[tier?.id || 'none'].stops
   const bg = g.createLinearGradient(0, 0, W, H); bg.addColorStop(0, '#0b1020'); bg.addColorStop(1, '#151b33'); g.fillStyle = bg; g.fillRect(0, 0, W, H)
-  const glow = g.createRadialGradient(W / 2, H * 0.52, 40, W / 2, H * 0.52, 700); glow.addColorStop(0, stops[0] + '88'); glow.addColorStop(1, '#0000'); g.fillStyle = glow; g.fillRect(0, 0, W, H)
+  const glow = g.createRadialGradient(W / 2, H * 0.5, 40, W / 2, H * 0.5, 760); glow.addColorStop(0, stops[0] + '66'); glow.addColorStop(1, '#0000'); g.fillStyle = glow; g.fillRect(0, 0, W, H)
   g.textAlign = 'center'; g.fillStyle = '#fff'
-  g.font = '800 92px -apple-system, Inter, system-ui, sans-serif'; g.fillText(tier ? tier.n : 'FitSmarter', W / 2, 230)
-  g.font = '600 44px -apple-system, Inter, system-ui, sans-serif'; g.fillStyle = '#C9D4EA'
-  g.fillText(tier ? t('Top {0}% of gym-goers', tier.top) : t('My body, level by level'), W / 2, 300)
-  g.font = '800 54px -apple-system, Inter, system-ui, sans-serif'; g.fillStyle = '#4C8DFF'; g.fillText('FitSmarter', W / 2, H - 120)
-  return new Promise(r => c.toBlob(r, 'image/png'))
+  g.font = '800 96px -apple-system, Inter, system-ui, sans-serif'; g.fillText(tier ? tier.n : 'FitSmarter', W / 2, 200)
+  g.font = '600 42px -apple-system, Inter, system-ui, sans-serif'; g.fillStyle = '#C9D4EA'
+  g.fillText(ov ? t('Top {0}% of gym-goers', topTxt(ov.pct)) : t('My body, level by level'), W / 2, 268)
+  // the two sides, side by side
+  const faces = ['front', 'back'].map(bodySvg).filter(Boolean)
+  const imgs = await Promise.all(faces.map(f => loadSvg(f).catch(() => null)))
+  const bh = 1180, top = 330
+  imgs.forEach((img, i) => { if (!img) return
+    const bw = bh * faces[i].ratio, x = faces.length > 1 ? (i === 0 ? W / 2 - bw - 10 : W / 2 + 10) : (W - bw) / 2
+    g.drawImage(img, x, top, bw, bh) })
+  // the three strongest muscles
+  const best = Object.entries(map || {}).sort((a, b) => b[1].pct - a[1].pct).slice(0, 3)
+  g.font = '600 38px -apple-system, Inter, system-ui, sans-serif'
+  best.forEach(([m, r], i) => { g.fillStyle = r.tier.c; g.fillText(`${t(MUSCLE_NAME[m])} · ${r.tier.n}`, W / 2, top + bh + 70 + i * 54) })
+  g.font = '800 54px -apple-system, Inter, system-ui, sans-serif'; g.fillStyle = '#4C8DFF'; g.fillText('FitSmarter', W / 2, H - 70)
+  return new Promise(r => { try { c.toBlob(r, 'image/png') } catch { r(null) } })
 }
-async function shareBody(tier) {
-  const blob = await bodyPicture(tier)
-  const toast = m => { try { useUI.getState().toast(m) } catch { /* */ } }
-  await shareImage(blob, `fitsmarter-${tier?.id || 'body'}.png`, 'FitSmarter', toast)
+// Made before the tap: a browser opens its share sheet only straight from a tap, and drawing the
+// picture first took long enough for Safari to refuse it, silently.
+let READY = null
+async function prepareShare(tier, ov, map) {
+  const key = `${tier?.id}|${ov?.pct}|${Object.entries(map || {}).map(([m, r]) => m + r.tier.id).join()}`
+  if (READY?.key === key && READY.blob) return READY.blob
+  const blob = await bodyPicture(tier, ov, map)
+  READY = { key, blob, tier, ov, map }
+  return blob
+}
+function shareBody(tier) {
+  const toast = (m, o) => { try { useUI.getState().toast(m, o) } catch { /* */ } }
+  const name = `fitsmarter-${tier?.id || 'body'}.png`
+  const send = blob => {
+    if (!blob) { toast(t('Could not draw the picture.')); return }
+    const file = new File([blob], name, { type: 'image/png' })
+    if (!MOBILE && navigator.canShare?.({ files: [file] })) {
+      navigator.share({ files: [file], title: 'FitSmarter' }).catch(e => {
+        // refused for not coming straight from a tap: the picture is ready now, so one more tap shares it
+        if (e?.name === 'NotAllowedError') toast(t('Picture ready. Tap Share again.'))
+      })
+      return
+    }
+    shareImage(blob, name, 'FitSmarter', toast)
+  }
+  if (READY?.blob && READY.tier?.id === tier?.id) send(READY.blob)
+  else prepareShare(tier, READY?.ov, READY?.map).then(send)
 }
 
 function unlockSheet(tier) {
@@ -320,6 +378,12 @@ export default function Hub() {
   useEffect(() => { if (level !== lastLevel.current && lastLevel.current !== null) play(level > lastLevel.current ? 'up' : 'down'); lastLevel.current = level }, [level])
   useEffect(() => { if (moves.length) play(moves.filter(x => x.dir === 'up').length >= moves.filter(x => x.dir === 'down').length ? 'up' : 'down') }, [moves])
   const moved = fx && !moves.length ? Object.fromEntries(MUSCLES.map(m => [m, fx.dir])) : Object.fromEntries(moves.map(x => [x.slug, x.dir]))
+  // the share picture is drawn ahead, once the body has settled, so Share opens at once
+  useEffect(() => {
+    if (!g || forced) return
+    const tm = setTimeout(() => prepareShare(level >= 0 ? TIERS[level] : null, ov, map).catch(() => {}), 1500)
+    return () => clearTimeout(tm)
+  }, [g, forced, level, JSON.stringify(Object.entries(map).map(([m, r]) => [m, r.tier.id]))])
   return <>
     <div className="hdr"><div style={{ flex: 1 }}><h1>{t('Body')}</h1><div className="sub">{t('Your strength level, muscle by muscle')}</div></div>
       <button className="btn fs-lvlbtn" onClick={() => nav('/stats')}>{t('Stats')}</button></div>

@@ -255,3 +255,9 @@
 .fs-jump-gems{display:flex;align-items:center;justify-content:center;gap:12px;margin:6px 0 10px;font-size:22px;opacity:.95}
 .fs-jump-logged{font-weight:700;padding:10px 12px;border-radius:12px;background:color-mix(in srgb,#F5A524 16%,transparent)}
 .fs-jump .fs-rule{display:flex;flex-direction:column;gap:2px;text-align:left;margin:8px 0 14px;font-size:13px}
+/* first workout: connect your cloud (CloudGate.jsx) */
+.fs-cloud{text-align:center;display:flex;flex-direction:column;gap:10px}
+.fs-cloud h2{margin:4px 0 0}
+.fs-cloud p{margin:0}
+.fs-cloud-icon{font-size:44px;line-height:1}
+.fs-cloud-err{color:#F25C6B;font-weight:600}
