@@ -32,7 +32,7 @@ export async function watchUser(cb) {
 }
 // The web client of the Google provider (Firebase Auth): Android asks Google for a token for it.
 const GOOGLE_WEB_CLIENT = '935670655430-vs349l9s67139r1h9piutif039oj647j.apps.googleusercontent.com'
-export async function signInGoogle({ scopes = [] } = {}) {
+export async function signInGoogle({ scopes = [], hint = '' } = {}) {
   const { A, auth } = await sdk(), p = new A.GoogleAuthProvider()
   scopes.forEach(s => p.addScope(s))
   if (await isAndroid()) {
@@ -43,7 +43,9 @@ export async function signInGoogle({ scopes = [] } = {}) {
   }
   // A popup, also when installed: a redirect needs the auth domain's storage, which browsers now
   // partition away from this site, so it would come back signed out.
-  p.setCustomParameters({ prompt: 'select_account' })
+  // Renewing a key for an account already chosen: Google is told which one, and when you are still
+  // signed in to it and already said yes, the window closes by itself without asking anything.
+  p.setCustomParameters(hint ? { login_hint: hint } : { prompt: 'select_account' })
   return A.signInWithPopup(auth, p)
 }
 export async function signInEmail(email, pass, create) {

@@ -4820,6 +4820,9 @@ function doFinishWorkout({ end: endAt, auto } = {}) {
     refillAfter(s, w)
   })
   useStore.getState().autoBackupNow()
+  // FitSmarter: the workout goes to Google Drive now (fitsmarter/drive.js). From the Finish tap a
+  // Drive key that ran out is renewed in the same tap; an automatic end only uses a key it has.
+  if (STANDALONE) import('./fitsmarter/drive.js').then(m => m.syncAfterFinish({ tap: !auto })).catch(() => {})
   useUI.getState().stopRest()
   // A hold still counting (a plank left unchecked, then Finish early) goes with the workout, as
   // on Discard: its bar is app-wide and would chime over the summary, and its callback writes

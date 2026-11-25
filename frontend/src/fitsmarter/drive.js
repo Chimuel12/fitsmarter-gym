@@ -14,6 +14,8 @@ import { useStore } from '../store/useStore.js'
 import { mergeStates } from '../lib/sync-merge.js'
 import { isAndroid } from '../lib/mobile.js'
 import { signInGoogle, sdk } from './compete.js'
+import { useUI } from '../store/useUI.js'
+import { t } from '../lib/i18n.js'
 
 export const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file'
 const API = 'https://www.googleapis.com/drive/v3', UP = 'https://www.googleapis.com/upload/drive/v3'
@@ -52,7 +54,7 @@ export async function driveToken({ interactive = false } = {}) {
   }
   if (!interactive) throw Object.assign(new Error('Tap Sync now to reconnect Google Drive'), { code: 'needs-tap' })
   const { A } = await sdk()
-  const res = await signInGoogle({ scopes: [DRIVE_SCOPE] })
+  const res = await signInGoogle({ scopes: [DRIVE_SCOPE], hint: readCfg().email || '' })
   const token = A.GoogleAuthProvider.credentialFromResult(res)?.accessToken
   if (!token) throw new Error('Google gave no Drive access')
   return keep(token)
@@ -171,6 +173,22 @@ async function doSync({ interactive = false } = {}) {
   }
 }
 
+/* ---------- right after a workout is saved ---------- */
+/** Sends the finished workout to Drive at once, with a note that says it did (or what to do).
+ *  `tap`: called from the Finish tap, so a key that ran out may be renewed (a browser keeps one
+ *  for under an hour); an automatic end only syncs with a key it still has. */
+export function syncAfterFinish({ tap = true } = {}) {
+  if (!readCfg().on) return Promise.resolve(null)
+  const toast = (m, o) => { try { useUI.getState().toast(m, o) } catch { /* */ } }
+  return syncNow({ interactive: tap }).then(
+    at => { if (at) toast(t('Saved to Google Drive ✓')); return at },
+    e => {
+      const again = { action: t('Try again'), onAction: () => syncNow({ interactive: true }).then(() => toast(t('Saved to Google Drive ✓')), () => toast(t('Google Drive did not answer. Try Sync now in Settings.'))), ms: 7000 }
+      toast(e.code === 'needs-tap' || e.code === 'auth' ? t('Workout saved here. Tap to send it to Google Drive.') : t('Workout saved here. Google Drive did not answer.'), again)
+      return null
+    })
+}
+
 /* ---------- on its own: at start, when the app comes back, a few seconds after a change ---------- */
 let started = false
 export function startDriveSync() {
@@ -178,6 +196,9 @@ export function startDriveSync() {
   started = true
   const quiet = () => syncNow().catch(() => {})
   if (readCfg().on) quiet()
+  // Google's sign-in loaded ahead, so a key renewed from the Finish tap opens its window at once
+  // (a browser lets a page open one only straight after a tap)
+  if (readCfg().on) sdk().catch(() => {})
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && readCfg().on) quiet() })
   let tm = null, last = useStore.getState().S
   useStore.subscribe(st => {
