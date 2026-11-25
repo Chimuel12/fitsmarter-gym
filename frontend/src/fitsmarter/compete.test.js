@@ -16,7 +16,7 @@ describe('a workout as friends see it', () => {
     expect(Number.isInteger(p.durationS)).toBe(true)
     expect(p.durationS).toBe(3600)
     const bench = p.lifts.find(l => l.ex === '0025')
-    expect(bench).toMatchObject({ w: 90, r: 10, tier: 'diamond' })
+    expect(bench).toMatchObject({ w: 90, r: 10, tier: 'emerald' })
   })
 })
 

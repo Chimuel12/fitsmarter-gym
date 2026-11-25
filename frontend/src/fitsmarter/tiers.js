@@ -1,16 +1,17 @@
 // FitSmarter strength tiers on top of openGym's history (AGPL-3.0, part of this fork).
 //
-// Every logged set becomes a 10-rep equivalent and is compared with reference 10-rep weights for
-// active gym-goers: an 80 kg man at the top 90 / 80 / 50 / 20 / 5 %, scaled to the lifter's body
-// weight, sex, age and height. Variations and machines are rated against the closest base lift
-// with a ratio, so they are estimates. Each muscle takes the tier of its best exercise
-// (openGym's own muscle weights: primary muscles fully, assisting ones at 60 %).
+// Every logged set becomes a 10-rep equivalent and is compared with the table of its movement family
+// (families.js: Strength Level's community standards for men and women, at the top 90 / 80 / 50 /
+// 20 / 5 %), scaled to the lifter's body weight, age and height. Close variants use a ratio and
+// exercises named after nothing known are estimated from their main muscle. Each muscle takes the
+// tier of its most recent session (openGym's muscle weights: primary fully, assisting at 60 %).
 import { buildPlannedEntry } from '../lib/session-start.js'
 import { POLICY_NAME } from '../lib/progression.js'
 import { isWarmupRow } from '../lib/workout-model.js'
 import { entryDbLoad } from '../lib/dumbbells.js'
 import { exerciseOf } from '../lib/exercises.js'
 import { musclesOf } from '../lib/muscles.js'
+import { FAMILIES, familyOf } from './families.js'
 
 /* ---------- tiers: boundaries from the reference table ---------- */
 export const TIERS = [
@@ -42,21 +43,9 @@ export const tierFor = pct => [...TIERS].reverse().find(t => 100 - pct <= t.top 
 export const tierIndex = id => Math.max(0, TIERS.findIndex(t => t.id === id))
 export const topTxt = pct => { const t = 100 - pct; return t < 1 ? '<1' : String(Math.round(t)) }
 
-/* ---------- reference 10-rep weights, 80 kg man (top 90 / 80 / 50 / 20 / 5 %) ---------- */
+/* ---------- the tables: one per movement family (families.js) ---------- */
 const Z = [-1.2816, -0.8416, 0, 0.8416, 1.645]
-const BASE = {
-  bench: { m: [37.5, 49, 67.5, 90, 116], fem: 0.55, lever: -0.25 },
-  squat: { m: [49, 71, 94, 124, 154], fem: 0.68, lever: -0.15 },
-  deadlift: { m: [60, 86, 112.5, 146, 180], fem: 0.68, lever: 0.2 },
-  ohp: { m: [24, 34, 43.5, 56, 71], fem: 0.55, lever: -0.25 },
-  row: { m: [34, 45, 60, 79, 101], fem: 0.58, lever: 0 },
-  curl: { m: [16.5, 22.5, 31.5, 41, 52.5], fem: 0.55, lever: 0 },
-  pullup: { m: [1, 3, 8, 14, 20], fem: 0.3, reps: true, lever: -0.3 },
-  pushup: { m: [8, 15, 28, 42, 55], fem: 0.45, reps: true, lever: -0.2 },
-  dip: { m: [3, 8, 15, 24, 32], fem: 0.4, reps: true, lever: -0.2 },
-  legraise: { m: [3, 6, 12, 18, 25], fem: 0.7, reps: true, lever: 0 },
-  bwlegs: { m: [10, 15, 25, 35, 50], fem: 0.85, reps: true, lever: 0 },
-}
+const BASE = FAMILIES
 // body-weight scaling from the bench-press reference table (65–100 kg), power law outside it
 const BW = [[65, 0.83], [75, 0.948], [80, 1], [90, 1.089], [100, 1.17]]
 function bwFactor(bw) {
@@ -67,53 +56,12 @@ function bwFactor(bw) {
 }
 const ageFactor = a => !a ? 1 : a < 14 ? 0.7 : a < 23 ? 0.86 + (a - 14) * 0.0156 : a <= 40 ? 1 : Math.max(0.6, 1 - (a - 40) * 0.009)
 
-/* ---------- how an openGym exercise is rated ---------- */
-// (regex on the name, base lift, ratio with a bar/machine, ratio per dumbbell)
-const RULES = [
-  [/bench press|floor press|board press|pin press/, 'bench', 1, 0.37], [/decline.*press/, 'bench', 1.05, 0.38], [/incline.*press/, 'bench', 0.84, 0.33],
-  [/chest press/, 'bench', 1, 0.37], [/\bfly\b|flye|crossover|pec deck|butterfly/, 'bench', 0.5, 0.16], [/pullover/, 'row', 0.6, 0.3],
-  [/front squat/, 'squat', 0.8, 0.3], [/hack squat|leg press|sled/, 'squat', 1.6, 0.3], [/squat/, 'squat', 1, 0.3], [/lunge|split squat|step.?up/, 'squat', 0.55, 0.25],
-  [/romanian|stiff.?leg|good morning/, 'deadlift', 0.75, 0.35], [/deadlift|rack pull/, 'deadlift', 1, 0.4], [/hip thrust|glute bridge/, 'squat', 1.1, 0.4],
-  [/military|overhead press|shoulder press|push press|arnold/, 'ohp', 1, 0.42], [/upright row/, 'ohp', 0.9, 0.35],
-  [/lateral raise|front raise|rear delt|reverse fl/, 'curl', 0.7, 0.3], [/shrug/, 'deadlift', 0.8, 0.35],
-  [/pulldown|pull.?down/, 'row', 1, 0.45], [/\brow\b|rows/, 'row', 1, 0.48],
-  [/leg extension/, 'squat', 0.6, 0.2], [/leg curl/, 'squat', 0.45, 0.2], [/calf/, 'squat', 1, 0.35],
-  [/hammer curl/, 'curl', 1, 0.48], [/curl/, 'curl', 1, 0.45],
-  // a kickback is one arm; an overhead or lying dumbbell extension holds one bell with both hands
-  [/kickback/, 'curl', 1, 0.25], [/pushdown|push.?down|skull|triceps? (extension|press)|french press/, 'curl', 1, 0.6], [/close.?grip.*bench/, 'bench', 0.9, 0.35],
-  [/crunch|twist|wood ?chop|ab roll/, 'bench', 0.5, 0.2], [/hyperextension|back extension/, 'deadlift', 0.45, 0.2], [/adduct|abduct/, 'squat', 0.7, 0.3],
-]
-const BW_RULES = [[/pull.?ups?|chin.?ups?/, 'pullup'], [/\bdips?\b/, 'dip'], [/push.?ups?/, 'pushup'], [/leg raise|knee raise|crunch|sit.?up|v.?up|jackknife/, 'legraise'], [/squat|lunge|step.?up|pistol/, 'bwlegs']]
-const FALLBACK = { chest: ['bench', 0.5], 'front-delts': ['ohp', 0.6], 'side-delts': ['curl', 0.5], 'rear-delts': ['curl', 0.5], lats: ['row', 0.8], 'upper-back': ['row', 0.8],
-  biceps: ['curl', 0.8], triceps: ['curl', 0.9], forearm: ['curl', 0.7], trapezius: ['deadlift', 0.6], 'lower-back': ['deadlift', 0.45], quadriceps: ['squat', 0.7],
-  hamstring: ['squat', 0.45], gluteal: ['squat', 0.8], calves: ['squat', 0.9], adductors: ['squat', 0.6], abs: ['bench', 0.4], obliques: ['bench', 0.4] }
-const BW_FALLBACK = { abs: 'legraise', obliques: 'legraise', quadriceps: 'bwlegs', gluteal: 'bwlegs', hamstring: 'bwlegs', calves: 'bwlegs', chest: 'pushup', triceps: 'dip', lats: 'pullup', biceps: 'pullup' }
-const BELL = /dumbbell|kettlebell/
-const isBodyweight = eq => /body ?weight|bodyweight|assisted|band/.test(eq || '')
-
-const RATE = new Map()
-/** { base, k, hand } for an exercise, or null when it cannot be rated (cardio, stretches…). */
-export function rateOf(exOrId) {
-  const ex = exerciseOf(exOrId)
-  if (!ex) return null
-  if (RATE.has(ex)) return RATE.get(ex)
-  const name = (ex.n || '').toLowerCase(), eq = (ex.eq || '').toLowerCase()
-  const mus = Object.entries(musclesOf(ex)).sort((a, b) => b[1] - a[1]).map(([m]) => m)
-  let r = null
-  if (ex.bp !== 'cardio' && !/stretch|mobility|foam|roll/.test(name) && mus.length) {
-    if (isBodyweight(eq)) {
-      const base = (BW_RULES.find(([re]) => re.test(name)) || [])[1] || BW_FALLBACK[mus[0]]
-      if (base) r = { base, k: 1, hand: false }
-    } else {
-      const bell = BELL.test(eq), rule = RULES.find(([re]) => re.test(name))
-      const [base, k] = rule ? [rule[1], bell ? rule[3] : rule[2]] : FALLBACK[mus[0]] ? [FALLBACK[mus[0]][0], FALLBACK[mus[0]][1] * (bell ? 0.45 : 1)] : [null, 0]
-      if (base) r = { base, k: eq.includes('cable') && rule ? k * 0.9 : k, hand: bell }
-    }
-  }
-  RATE.set(ex, r)
-  return r
-}
+/* ---------- how an openGym exercise is rated: families.js ---------- */
+/** { base, k, hand, conf } for an exercise, or null when it cannot be rated (cardio, stretches…). */
+export const rateOf = familyOf
 export const isRepsRated = exOrId => !!BASE[rateOf(exOrId)?.base]?.reps
+
+const BELL = /dumbbell|kettlebell/
 
 /* ---------- the lifter ---------- */
 const LB = 0.45359237
@@ -129,10 +77,12 @@ export function profileOf(S, extra = {}) {
 export function standards(exOrId, prof = {}) {
   const r = rateOf(exOrId), b = r && BASE[r.base]
   if (!b) return null
-  const fem = prof.sex === 'f', bw = prof.weight || (fem ? 62 : 80), refH = fem ? 164 : 178, h = prof.height || refH
+  const fem = prof.sex === 'f', bw = prof.weight || (fem ? 64 : 80), refH = fem ? 164 : 178, h = prof.height || refH
   const age = prof.birthYear ? new Date().getFullYear() - prof.birthYear : 0
-  const adj = (fem ? b.fem : 1) * ageFactor(age) * Math.pow(h / refH, b.lever)
-  return b.reps ? b.m.map(v => v * adj * Math.pow(80 / bw, 0.6) * r.k) : b.m.map(v => v * adj * bwFactor(bw) * r.k)
+  // a family with its own women's table (most): that table, centred on a 64 kg woman; else the men's × fem
+  const own = fem && b.f, table = own ? b.f : b.m, refBw = own ? 64 : 80
+  const adj = (fem && !own ? b.fem : 1) * ageFactor(age) * Math.pow(h / refH, b.lever)
+  return b.reps ? table.map(v => v * adj * Math.pow(refBw / bw, 0.6) * r.k) : table.map(v => v * adj * bwFactor(bw) / bwFactor(refBw) * r.k)
 }
 const phi = z => { const t = 1 / (1 + 0.2316419 * Math.abs(z)), d = 0.3989423 * Math.exp(-z * z / 2), p = d * t * (0.3193815 + t * (-0.3565638 + t * (1.781478 + t * (-1.821256 + t * 1.330274)))); return z > 0 ? 1 - p : p }
 /** Percentile of a 10-rep-equivalent weight (kg) or a rep count — log-linear between the anchors. */

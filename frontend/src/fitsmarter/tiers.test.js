@@ -14,16 +14,17 @@ describe('the reference table (80 kg man, 10 reps)', () => {
   it('puts the table weights on their tier boundaries', () => {
     const ex = bench()
     const tier = w => tierFor(percentileOf(ex, w, MAN)).id
-    expect(tier(37.5)).toBe('bronze')     // top 90 %
-    expect(tier(49)).toBe('silver')       // top 80 %
-    expect(tier(67.5)).toBe('ruby')       // top 50 %
-    expect(tier(90)).toBe('diamond')      // top 20 %
-    expect(tier(116)).toBe('symmetric')   // top 5 %
-    expect(tier(30)).toBe('iron')
+    // Strength Level's bench (1RM 49 / 70 / 96 / 127 / 160 kg) as 10-rep weights
+    expect(tier(43.3)).toBe('bronze')     // top 90 %
+    expect(tier(52.6)).toBe('silver')     // top 80 %
+    expect(tier(72.1)).toBe('ruby')       // top 50 %
+    expect(tier(95.4)).toBe('diamond')    // top 20 %
+    expect(tier(120.1)).toBe('symmetric') // top 5 %
+    expect(tier(35)).toBe('iron')
   })
-  it('scales with body weight like the bench table (65 kg → 56, 100 kg → 79 for the top 50 %)', () => {
-    expect(weightAtTop(bench(), 50, { ...MAN, weight: 65 })).toBeCloseTo(56, 0)
-    expect(weightAtTop(bench(), 50, { ...MAN, weight: 100 })).toBeCloseTo(79, 0)
+  it('scales with body weight (65 kg → 60, 100 kg → 84 for the top 50 %)', () => {
+    expect(weightAtTop(bench(), 50, { ...MAN, weight: 65 })).toBeCloseTo(60, 0)
+    expect(weightAtTop(bench(), 50, { ...MAN, weight: 100 })).toBeCloseTo(84, 0)
   })
 })
 
@@ -38,7 +39,7 @@ describe('logged sets', () => {
     expect(setValue(curl, { w: 40, r: 10 }, 'kg', 'total')).toBeCloseTo(setValue(curl, { w: 20, r: 10 }, 'kg', 'each'), 5)
   })
   it('lights the bench muscles and leaves the legs untrained', () => {
-    const S = { unit: 'kg', workouts: [{ date: '2026-11-10', entries: [{ id: bench().id, sets: [{ w: 90, r: 10, done: true }] }] }] }
+    const S = { unit: 'kg', workouts: [{ date: '2026-11-10', entries: [{ id: bench().id, sets: [{ w: 97.5, r: 10, done: true }] }] }] }
     const map = muscleTiers(S, MAN, { cap: false })
     expect(map.chest.tier.id).toBe('diamond')
     expect(muscleTiers(S, MAN).chest.tier.id).toBe('diamond')   // nothing else trained yet: nothing holds it back
