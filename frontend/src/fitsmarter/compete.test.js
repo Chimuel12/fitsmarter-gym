@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { postOf, board } from './compete.js'
+import { postOf, board, shareFrom, keepFrom, KEEP_DAYS } from './compete.js'
 
 const MAN = { sex: 'm', weight: 80, height: 178, birthYear: 1995, unit: 'kg' }
 const now = Date.now()
@@ -35,5 +35,26 @@ describe('the leaderboard', () => {
     expect(board(posts, members, 'week', 'volume')[0].p.uid).toBe('a')
     const tiers = board(posts, members, 'week', 'tiers')
     expect(tiers[0].p.uid).toBe('a')   // best bench at the 85th percentile beats the 40th
+  })
+})
+
+describe('privacy choices', () => {
+  const DAY = 864e5, T = Date.UTC(2026, 10, 26)
+  it('leaves out weights and reps unless you chose to share them, keeping the level', () => {
+    const bench = postOf(workout, MAN, { weights: false }).lifts.find(l => l.ex === '0025')
+    expect(bench).not.toHaveProperty('w'); expect(bench).not.toHaveProperty('r')
+    expect(bench.tier).toBe('emerald')
+    expect(postOf(workout, MAN, { weights: true }).lifts.find(l => l.ex === '0025')).toMatchObject({ w: 90, r: 10 })
+  })
+  it('shares only workouts from your yes on, unless you chose the last 30 days', () => {
+    expect(shareFrom({ at: T - 2 * DAY, past: false }, T)).toBe(T - 2 * DAY)
+    expect(shareFrom({ at: T - 2 * DAY, past: true }, T)).toBe(T - 30 * DAY)
+    expect(shareFrom({ at: T - 60 * DAY, past: false }, T)).toBe(T - 30 * DAY)
+  })
+  it('deletes your posts after the keeping time, and earlier ones you did not agree to share', () => {
+    expect(KEEP_DAYS).toBe(90)
+    expect(keepFrom({ at: T - 200 * DAY, past: true }, T)).toBe(T - 90 * DAY)
+    expect(keepFrom({ at: T - 5 * DAY, past: false }, T)).toBe(T - 5 * DAY)
+    expect(keepFrom({ at: T - 5 * DAY, past: true }, T)).toBe(T - 90 * DAY)
   })
 })

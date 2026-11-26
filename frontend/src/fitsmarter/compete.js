@@ -31,7 +31,7 @@ export async function watchUser(cb) {
   return A.onAuthStateChanged(auth, cb)
 }
 // The web client of the Google provider (Firebase Auth): Android asks Google for a token for it.
-const GOOGLE_WEB_CLIENT = '935670655430-vs349l9s67139r1h9piutif039oj647j.apps.googleusercontent.com'
+export const GOOGLE_WEB_CLIENT = '935670655430-vs349l9s67139r1h9piutif039oj647j.apps.googleusercontent.com'
 export async function signInGoogle({ scopes = [], hint = '' } = {}) {
   const { A, auth } = await sdk(), p = new A.GoogleAuthProvider()
   scopes.forEach(s => p.addScope(s))
@@ -53,9 +53,9 @@ export async function signInEmail(email, pass, create) {
   return create ? A.createUserWithEmailAndPassword(auth, email, pass) : A.signInWithEmailAndPassword(auth, email, pass)
 }
 export async function signOutFs() { const { A, auth } = await sdk(); return A.signOut(auth) }
-export async function saveProfile(user, name) {
+export async function saveProfile(user, name, consent = null) {
   const { F, db } = await sdk()
-  await F.setDoc(F.doc(db, 'users', user.uid), { uid: user.uid, name: name || user.displayName || (user.email || '').split('@')[0], photo: user.photoURL || '', createdAt: Date.now() }, { merge: true })
+  await F.setDoc(F.doc(db, 'users', user.uid), { uid: user.uid, name: name || user.displayName || (user.email || '').split('@')[0], photo: consent?.photo ? user.photoURL || '' : '', createdAt: Date.now() }, { merge: true })
 }
 export async function profilesOf(uids) {
   const { F, db } = await sdk(), out = {}
@@ -80,7 +80,17 @@ export async function joinGroup(uid, code) {
   await F.updateDoc(ref, { members: F.arrayUnion(uid) })
   return id
 }
-export async function leaveGroup(uid, id) { const { F, db } = await sdk(); await F.updateDoc(F.doc(db, 'groups', id), { members: F.arrayRemove(uid) }) }
+/** Leave a group and take back what you shared there: your posts and the kudos you gave. */
+export async function leaveGroup(uid, id) {
+  const { F, db } = await sdk()
+  await forgetIn(F, db, uid, id)
+  await F.updateDoc(F.doc(db, 'groups', id), { members: F.arrayRemove(uid) })
+}
+async function forgetIn(F, db, uid, gid) {
+  const feed = F.collection(db, 'groups', gid, 'feed')
+  const [mine, liked] = await Promise.all([F.getDocs(F.query(feed, F.where('uid', '==', uid))), F.getDocs(F.query(feed, F.where('kudos', 'array-contains', uid)))])
+  await Promise.all([...mine.docs.map(d => F.deleteDoc(d.ref)), ...liked.docs.filter(d => d.data().uid !== uid).map(d => F.updateDoc(d.ref, { kudos: F.arrayRemove(uid) }))])
+}
 export async function watchFeed(gid, since, cb) {
   const { F, db } = await sdk()
   return F.onSnapshot(F.query(F.collection(db, 'groups', gid, 'feed'), F.where('start', '>=', since), F.orderBy('start', 'desc')), s => cb(s.docs.map(d => ({ id: d.id, ...d.data() }))), () => cb([]))
@@ -94,7 +104,7 @@ export async function kudos(gid, postId, uid, on) {
 const startOf = w => { const t = Date.parse(w?.start) || Number(w?.start) || Date.parse(w?.date); return Number.isFinite(t) ? t : 0 }
 const doneSets = e => (e.sets || []).filter(s => s && (s.done === undefined || s.done) && Number(s.r) > 0)
 /** A workout as the summary friends see; points are integers capped at 400 (security rules). */
-export function postOf(w, prof) {
+export function postOf(w, prof, consent = { weights: true }) {
   const lifts = []
   let sets = 0
   for (const e of w.entries || []) {
@@ -105,26 +115,106 @@ export function postOf(w, prof) {
     const best = ds.reduce((b, s) => { const v = setValue(e.id, s, prof.unit, dbLoad); return v > b.v ? { v, s } : b }, { v: 0, s: null })
     if (!best.s) continue
     const pct = percentileOf(e.id, best.v, prof), ex = exerciseOf(e.id)
-    lifts.push({ ex: e.id, n: ex ? exerciseNameFor(ex) : e.id, w: Number(best.s.w) || 0, r: Number(best.s.r) || 0, pct: Math.round(pct * 10) / 10, tier: tierFor(pct).id })
+    const lift = { ex: e.id, n: ex ? exerciseNameFor(ex) : e.id, pct: Math.round(pct * 10) / 10, tier: tierFor(pct).id }
+    // weights and reps only when you chose to share them; the level is always shown
+    lifts.push(consent?.weights ? { ...lift, w: Number(best.s.w) || 0, r: Number(best.s.r) || 0 } : lift)
   }
   const volume = Math.round(workoutVolume(w) || 0), durationS = Math.min(86400, Math.round((workoutDuration(w) || 0) / 1000))
   const points = Math.min(400, Math.round(sets * 2 + volume / 250))
   lifts.sort((a, b) => b.pct - a.pct)
   return { start: startOf(w), durationS, sets, volume, points, unit: prof.unit, title: w.name || w.title || '', lifts: lifts.slice(0, 6) }
 }
-/** Post the last 30 days of workouts to every group (idempotent: one post per workout id). */
-export async function syncWorkouts(user, name, S, prof, groups) {
-  if (!groups.length) return 0
-  const { F, db } = await sdk(), since = Date.now() - 30 * 864e5
+/* ---------- privacy (GDPR): consent, what is shared, how long, export, delete ---------- */
+export const CONSENT_V = 1
+export const KEEP_DAYS = 90
+export const PRIVACY_URL = 'https://chimuel12.github.io/fitsmarter-gym/privacy.html'
+/** Your consent and sharing choices, or null when you have not agreed yet. */
+export async function getConsent(uid) {
+  const { F, db } = await sdk(), s = await F.getDoc(F.doc(db, 'users', uid))
+  const c = s.exists() ? s.data().consent : null
+  return c && c.v >= CONSENT_V ? c : null
+}
+/** Saves your yes (with the choices) and the profile that goes with it. */
+export async function giveConsent(user, name, { photo = false, weights = false, past = false } = {}) {
+  const consent = { v: CONSENT_V, at: Date.now(), age16: true, photo: !!photo, weights: !!weights, past: !!past }
+  const { F, db } = await sdk()
+  await F.setDoc(F.doc(db, 'users', user.uid), { uid: user.uid, name: name || user.displayName || (user.email || '').split('@')[0], photo: photo ? user.photoURL || '' : '', consent }, { merge: true })
+  return consent
+}
+export async function updateChoices(user, consent, patch) {
+  const next = { ...consent, ...patch }
+  const { F, db } = await sdk()
+  await F.setDoc(F.doc(db, 'users', user.uid), { consent: next, photo: next.photo ? user.photoURL || '' : '' }, { merge: true })
+  return next
+}
+/** Workouts from this time on are shared: the last 30 days, or only from your yes on. */
+export const shareFrom = (consent, now = Date.now()) => Math.max(now - 30 * 864e5, consent?.past ? 0 : consent?.at || now)
+/** Your posts older than this are deleted: after KEEP_DAYS, and anything from before your yes
+ *  when you chose not to share earlier workouts. */
+export const keepFrom = (consent, now = Date.now()) => Math.max(now - KEEP_DAYS * 864e5, consent?.past ? 0 : consent?.at || 0)
+
+/** Post your recent workouts to every group (idempotent: one post per workout id), bring older
+ *  posts in line with your choices, and delete the ones past their time. */
+export async function syncWorkouts(user, name, S, prof, groups, consent) {
+  if (!groups.length || !consent) return 0
+  const { F, db } = await sdk(), since = shareFrom(consent), cut = keepFrom(consent)
   const ws = (S?.workouts || []).filter(w => w?.id && startOf(w) >= since && (w.entries || []).some(e => doneSets(e).length))
+  const photo = consent.photo ? user.photoURL || '' : ''
   const b = F.writeBatch(db)
   let n = 0
   for (const w of ws) {
-    const post = { ...postOf(w, prof), uid: user.uid, name, photo: user.photoURL || '' }
+    const post = { ...postOf(w, prof, consent), uid: user.uid, name, photo }
     for (const g of groups) { b.set(F.doc(db, 'groups', g.id, 'feed', String(w.id)), post, { merge: true }); n++ }
   }
   if (n) await b.commit()
+  const fresh = new Set(ws.map(w => String(w.id)))
+  await Promise.all(groups.map(async g => {
+    const mine = await F.getDocs(F.query(F.collection(db, 'groups', g.id, 'feed'), F.where('uid', '==', user.uid)))
+    await Promise.all(mine.docs.map(d => {
+      const p = d.data()
+      if (!(p.start >= cut)) return F.deleteDoc(d.ref)
+      if (fresh.has(d.id)) return null
+      const lifts = consent.weights ? p.lifts : (p.lifts || []).map(({ w, r, ...l }) => l)
+      return p.photo !== photo || p.name !== name || JSON.stringify(lifts) !== JSON.stringify(p.lifts) ? F.updateDoc(d.ref, { photo, name, lifts: lifts || [] }) : null
+    }))
+  }))
   return ws.length
+}
+
+/** Everything the friends feature keeps about you, as one JSON file. */
+export async function exportMine(user, groups) {
+  const { F, db } = await sdk()
+  const prof = await F.getDoc(F.doc(db, 'users', user.uid))
+  const out = { exportedAt: new Date().toISOString(), account: { uid: user.uid, email: user.email || null, name: user.displayName || null, signIn: user.providerData?.map(p => p.providerId) || [] }, profile: prof.exists() ? prof.data() : null, groups: [] }
+  for (const g of groups) {
+    const feed = F.collection(db, 'groups', g.id, 'feed')
+    const [mine, liked] = await Promise.all([F.getDocs(F.query(feed, F.where('uid', '==', user.uid))), F.getDocs(F.query(feed, F.where('kudos', 'array-contains', user.uid)))])
+    out.groups.push({ id: g.id, name: g.name, owner: g.owner === user.uid, posts: mine.docs.map(d => ({ id: d.id, ...d.data() })), kudosGivenTo: liked.docs.map(d => d.id) })
+  }
+  return out
+}
+
+/** Google or your password once more: deleting an account needs a fresh sign-in. */
+export async function reauth(user, password = '') {
+  const { A } = await sdk()
+  if ((user.providerData || []).some(p => p.providerId === 'password')) return A.reauthenticateWithCredential(user, A.EmailAuthProvider.credential(user.email, password))
+  if (await isAndroid()) {
+    const { registerPlugin } = await import('@capacitor/core')
+    const { idToken } = await registerPlugin('GoogleSignIn').signIn({ clientId: GOOGLE_WEB_CLIENT })
+    return A.reauthenticateWithCredential(user, A.GoogleAuthProvider.credential(idToken))
+  }
+  return A.reauthenticateWithPopup(user, new A.GoogleAuthProvider())
+}
+/** Deletes your friends account: your posts and kudos in every group, your profile, the account. */
+export async function deleteAccount(user, groups) {
+  const { A, F, db } = await sdk()
+  for (const g of groups) await leaveGroup(user.uid, g.id)
+  for (const sub of ['activities', 'routines']) {
+    const docs = await F.getDocs(F.collection(db, 'users', user.uid, sub)).catch(() => null)
+    if (docs) await Promise.all(docs.docs.map(d => F.deleteDoc(d.ref)))
+  }
+  await F.deleteDoc(F.doc(db, 'users', user.uid))
+  await A.deleteUser(user)
 }
 
 /* ---------- leaderboard ---------- */

@@ -18,6 +18,9 @@ import { TIERS, TIER_TEXT, tierFor, tierIndex, topTxt, profileOf, muscleTiers, o
 import { changesSince, markSeen } from './progress.js'
 import { SKINS, skinOf, skinLevel, skinClasses, muscleScale, nextSkin } from './skins.js'
 import { LookDefs } from './looks.jsx'
+import { syncOnOpen, syncNow } from './drive.js'
+import { useDrive } from './Drive.jsx'
+import { STANDALONE } from '../lib/demo.js'
 import './fitsmarter.css'
 
 const HEIGHT_KEY = 'fs_height'
@@ -326,9 +329,20 @@ function MuscleSheet({ slug, r, nx, sug, prof, close, nav }) {
   </div>
 }
 
+/** The Body screen's line about Google Drive: syncing, synced, or a tap to sync. */
+function DriveLine() {
+  const s = useDrive()
+  if (!s.on) return null
+  if (s.busy) return <div className="fs-drive-line">☁ {t('Syncing…')}</div>
+  if (s.error) return <button className="fs-drive-line fs-drive-tap" onClick={() => syncNow({ interactive: true }).catch(() => {})}>☁ {t('Tap to sync with Google Drive')}</button>
+  return s.last ? <div className="fs-drive-line">☁ {t('Synced with Google Drive ✓')}</div> : null
+}
+
 export default function Hub() {
   const nav = useNavigate()
   const S = useStore(s => s.S)
+  // every visit to Body syncs with Google Drive, like the Sync now button
+  useEffect(() => { if (STANDALONE) syncOnOpen() }, [])
   const geo = useGeometry()
   const [height, setHeight] = useState(readHeight)
   const prof = useMemo(() => profileOf(S, { height }), [S, height])
@@ -385,7 +399,7 @@ export default function Hub() {
     return () => clearTimeout(tm)
   }, [g, forced, level, JSON.stringify(Object.entries(map).map(([m, r]) => [m, r.tier.id]))])
   return <>
-    <div className="hdr"><div style={{ flex: 1 }}><h1>{t('Body')}</h1><div className="sub">{t('Your strength level, muscle by muscle')}</div></div>
+    <div className="hdr"><div style={{ flex: 1 }}><h1>{t('Body')}</h1><div className="sub">{t('Your strength level, muscle by muscle')}</div>{STANDALONE && <DriveLine />}</div>
       <button className="btn fs-lvlbtn" onClick={() => nav('/stats')}>{t('Stats')}</button></div>
     <div className="fs-hub">
       <GemDefs /><LookDefs />

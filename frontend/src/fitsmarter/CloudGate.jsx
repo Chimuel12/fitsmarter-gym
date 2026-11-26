@@ -14,7 +14,7 @@ function CloudSheet({ close, cancel }) {
   const [busy, setBusy] = useState(false), [err, setErr] = useState('')
   const connect = () => {
     setBusy(true); setErr('')
-    connectDrive().then(() => close(), e => { setBusy(false); setErr(e?.message || t('Google Drive did not answer. Try again.')) })
+    connectDrive().then(() => close(), e => { setBusy(false); setErr(e?.code === 'cancelled' ? '' : e?.message || t('Google Drive did not answer. Try again.')) })
   }
   return <div className="fs-sheet fs-cloud">
     <div className="fs-cloud-icon" aria-hidden="true">☁️</div>

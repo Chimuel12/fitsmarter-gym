@@ -13,7 +13,7 @@
 import { useStore } from '../store/useStore.js'
 import { mergeStates } from '../lib/sync-merge.js'
 import { isAndroid } from '../lib/mobile.js'
-import { signInGoogle, sdk } from './compete.js'
+import { signInGoogle, sdk, GOOGLE_WEB_CLIENT } from './compete.js'
 import { useUI } from '../store/useUI.js'
 import { t } from '../lib/i18n.js'
 
@@ -40,7 +40,7 @@ const cached = () => {
   if (!mem) try { mem = JSON.parse(sessionStorage.getItem(TOKEN_KEY) || 'null') } catch { mem = null }
   return mem && mem.exp > Date.now() + 60e3 ? mem.token : null
 }
-const keep = token => { mem = { token, exp: Date.now() + 50 * 60e3 }; try { sessionStorage.setItem(TOKEN_KEY, JSON.stringify(mem)) } catch { /* private */ } return token }
+const keep = (token, secs = 3000) => { mem = { token, exp: Date.now() + Math.min(secs, 3500) * 1e3 }; try { sessionStorage.setItem(TOKEN_KEY, JSON.stringify(mem)) } catch { /* private */ } return token }
 const native = async () => (await import('@capacitor/core')).registerPlugin('GoogleSignIn')
 
 /** A Drive key. interactive: may show Google's screens (only from a tap). */
@@ -53,11 +53,59 @@ export async function driveToken({ interactive = false } = {}) {
     return keep(r.accessToken)
   }
   if (!interactive) throw Object.assign(new Error('Tap Sync now to reconnect Google Drive'), { code: 'needs-tap' })
-  const { A } = await sdk()
-  const res = await signInGoogle({ scopes: [DRIVE_SCOPE], hint: readCfg().email || '' })
-  const token = A.GoogleAuthProvider.credentialFromResult(res)?.accessToken
-  if (!token) throw new Error('Google gave no Drive access')
-  return keep(token)
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) throw Object.assign(new Error(t('No internet connection. Connect and tap again.')), { code: 'offline' })
+  // Google's own window (Google Identity Services): it talks to accounts.google.com only. The
+  // Firebase window it replaces needs a hidden frame from another site, which Safari and other
+  // private browsers block, and then failed with "auth/network-request-failed".
+  if (await loadGis().then(() => true, () => false)) {
+    const r = await gisToken(readCfg().email || '')
+    return keep(r.access_token, Number(r.expires_in) || 3000)
+  }
+  try {
+    const { A } = await sdk()
+    const res = await signInGoogle({ scopes: [DRIVE_SCOPE], hint: readCfg().email || '' })
+    const token = A.GoogleAuthProvider.credentialFromResult(res)?.accessToken
+    if (!token) throw new Error('Google gave no Drive access')
+    return keep(token)
+  } catch (e) { throw friendly(e) }
+}
+
+/* ---------- Google Identity Services ---------- */
+let gisLoad = null
+/** Loads Google's sign-in script once; started early so a tap opens the window at once. */
+export function loadGis() {
+  if (typeof window === 'undefined') return Promise.reject(new Error('no window'))
+  if (window.google?.accounts?.oauth2) return Promise.resolve()
+  if (!gisLoad) gisLoad = new Promise((ok, no) => {
+    const s = document.createElement('script')
+    s.src = 'https://accounts.google.com/gsi/client'; s.async = true
+    s.onload = () => (window.google?.accounts?.oauth2 ? ok() : no(new Error('gis')))
+    s.onerror = () => { gisLoad = null; no(new Error('gis')) }
+    document.head.appendChild(s)
+  })
+  return gisLoad
+}
+function gisToken(hint) {
+  return new Promise((ok, no) => {
+    const fail = (code, msg) => no(friendly(Object.assign(new Error(msg || code), { code })))
+    const client = window.google.accounts.oauth2.initTokenClient({
+      client_id: GOOGLE_WEB_CLIENT, scope: DRIVE_SCOPE, hint,
+      callback: r => (r?.access_token ? ok(r) : fail(r?.error || 'auth', r?.error_description)),
+      error_callback: e => fail(e?.type === 'popup_closed' ? 'cancelled' : e?.type || 'auth', e?.message),
+    })
+    // an account Google already knows and that said yes: the window closes by itself
+    client.requestAccessToken({ prompt: hint ? '' : 'select_account' })
+  })
+}
+/** A sign-in error in words a person can act on. */
+export function friendly(e) {
+  const code = String(e?.code || '')
+  if (code === 'cancelled' || code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') return Object.assign(e, { code: 'cancelled' })
+  const msg = code === 'auth/network-request-failed' || code === 'offline' ? t('Google could not be reached. Check the internet connection and tap again.')
+    : code === 'popup_failed_to_open' || code === 'auth/popup-blocked' ? t('The browser blocked Google\'s window. Allow pop-ups for this site and tap again.')
+      : code === 'access_denied' ? t('Google Drive access was not allowed. Tap again and allow it to keep your workouts safe.')
+        : e?.message || t('Google Drive did not answer. Try again.')
+  return Object.assign(new Error(msg), { code })
 }
 
 async function call(token, url, opts = {}) {
@@ -189,6 +237,15 @@ export function syncAfterFinish({ tap = true } = {}) {
     })
 }
 
+/* ---------- opening the Body screen ---------- */
+/** Opening Body syncs like the Sync now button, so the levels shown are the ones on every device.
+ *  Google's window may open only straight after a tap; without one it syncs with the key it has. */
+export function syncOnOpen() {
+  if (!readCfg().on) return Promise.resolve(null)
+  const tap = typeof navigator !== 'undefined' && !!navigator.userActivation?.isActive
+  return syncNow({ interactive: tap }).catch(() => null)
+}
+
 /* ---------- on its own: at start, when the app comes back, a few seconds after a change ---------- */
 let started = false
 export function startDriveSync() {
@@ -198,7 +255,7 @@ export function startDriveSync() {
   if (readCfg().on) quiet()
   // Google's sign-in loaded ahead, so a key renewed from the Finish tap opens its window at once
   // (a browser lets a page open one only straight after a tap)
-  if (readCfg().on) sdk().catch(() => {})
+  loadGis().catch(() => {})
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && readCfg().on) quiet() })
   let tm = null, last = useStore.getState().S
   useStore.subscribe(st => {

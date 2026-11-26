@@ -1,9 +1,9 @@
 // @vitest-environment happy-dom
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-vi.mock('./compete.js', () => ({ signInGoogle: vi.fn(), sdk: vi.fn() }))
+vi.mock('./compete.js', () => ({ signInGoogle: vi.fn(), sdk: vi.fn(), GOOGLE_WEB_CLIENT: 'client-id' }))
 vi.mock('../lib/mobile.js', async o => ({ ...(await o()), isAndroid: async () => false }))
 import { useStore } from '../store/useStore.js'
-import { syncNow, readCfg } from './drive.js'
+import { syncNow, readCfg, syncOnOpen, driveToken, friendly, disconnectDrive } from './drive.js'
 
 // A tiny Google Drive: files by id, with the calls drive.js makes.
 function fakeDrive() {
@@ -50,5 +50,40 @@ describe('Google Drive sync', () => {
     expect(ids).toEqual(['laptop', 'phone'])
     expect(JSON.parse(files.F9.body).workouts.map(w => w.id).sort()).toEqual(['laptop', 'phone'])
     expect(readCfg().fileId).toBe('F9')
+  })
+})
+
+describe('opening Body', () => {
+  it('pulls what another device saved to Drive', async () => {
+    const files = fakeDrive()
+    files.F9 = { id: 'F9', app: 'data', parents: ['P'], body: JSON.stringify({ ...useStore.getState().S, workouts: [{ id: 'phone', date: '2026-11-20', entries: [] }] }) }
+    await syncOnOpen()
+    expect(useStore.getState().S.workouts.map(w => w.id)).toContain('phone')
+  })
+  it('does nothing without Drive and never throws', async () => {
+    localStorage.setItem('fs_drive', JSON.stringify({ on: false }))
+    globalThis.fetch = vi.fn()
+    expect(await syncOnOpen()).toBe(null)
+    expect(fetch).not.toHaveBeenCalled()
+    localStorage.setItem('fs_drive', JSON.stringify({ on: true })); sessionStorage.clear()
+    expect(await syncOnOpen()).toBe(null)   // key ran out, no tap: quiet
+  })
+})
+
+describe('renewing the Drive key in a browser', () => {
+  it('asks Google directly (no Firebase window) for the remembered account and keeps the key', async () => {
+    disconnectDrive()   // no key kept
+    localStorage.setItem('fs_drive', JSON.stringify({ on: true, email: 'me@example.com' }))
+    let asked
+    window.google = { accounts: { oauth2: { initTokenClient: c => ({ requestAccessToken: o => { asked = { hint: c.hint, scope: c.scope, prompt: o.prompt }; c.callback({ access_token: 'NEW', expires_in: 3599 }) } }) } } }
+    expect(await driveToken({ interactive: true })).toBe('NEW')
+    expect(asked).toEqual({ hint: 'me@example.com', scope: 'https://www.googleapis.com/auth/drive.file', prompt: '' })
+    expect(await driveToken()).toBe('NEW')   // kept: no second window
+    delete window.google
+  })
+  it('turns sign-in errors into words to act on', () => {
+    expect(friendly({ code: 'auth/network-request-failed' }).message).toMatch(/internet connection/)
+    expect(friendly({ code: 'popup_failed_to_open' }).message).toMatch(/pop-ups/)
+    expect(friendly({ code: 'auth/popup-closed-by-user' }).code).toBe('cancelled')
   })
 })
