@@ -541,6 +541,8 @@ jobs:
         run: scripts/android/check-fdroid.sh
       # openGym Offline (flavour "offline"): no INTERNET permission, no network SDK, no Google.
       - name: openGym Offline has no network
+        # FitSmarter ships no Offline build: openGym's repository only
+        if: github.repository == 'DuarteSantos8/openGym'
         run: scripts/android/check-offline.sh
       # For trying it on a phone: a debug build (its own package, ch.duartesantos.opengym.offline.test),
       # with the repository's 180 px animations only, kept a week.
