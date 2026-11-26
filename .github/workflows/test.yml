@@ -156,8 +156,10 @@ jobs:
       # are shaken weekly in audit.yml.
       - name: Unit and component tests
         working-directory: frontend
+        # FitSmarter: the files in .github/fork-quarantine.txt are skipped, each with its reason
         run: >
           npx vitest run
+          $(grep -v '^#' ../.github/fork-quarantine.txt | grep . | sed 's/^/--exclude=/' | tr '\n' ' ')
           --reporter=default --reporter=json --outputFile.json=test-results.json
           --reporter=junit --outputFile.junit=junit.xml
           --coverage --coverage.provider=v8 --coverage.include='src/**'
